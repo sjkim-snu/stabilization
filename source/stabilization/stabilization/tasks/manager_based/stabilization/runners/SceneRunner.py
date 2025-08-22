@@ -1,7 +1,6 @@
 """
 This script runs only the scene for quadrotor stabilization in Isaac Sim.
-Before running, scripts under the scene definition should be commented out.
-usage : python3 run_only_scene.py
+usage : python3 SceneRunner.py
 """
 
 import argparse
@@ -14,7 +13,7 @@ args_cli = parser.parse_args()
 app_launcher = AppLauncher(args_cli)
 simulation_app = app_launcher.app
 
-from stabilization.tasks.manager_based.stabilization.envs.SceneConfigurations import StabilizationSceneCfg
+import stabilization.tasks.manager_based.stabilization.envs as envs
 import isaaclab.sim as sim_utils
 from isaaclab.scene import InteractiveScene, InteractiveSceneCfg
 
@@ -29,7 +28,7 @@ def main():
     sim.set_camera_view([2.0, 2.0, 2.0], [0.0, 0.0, 0.5])
     
     # Apply the scene configuration
-    scene_cfg = StabilizationSceneCfg(num_envs=10, env_spacing=0.2)
+    scene_cfg = envs.StabilizationSceneCfg(num_envs=10, env_spacing=0.2)
     scene = InteractiveScene(scene_cfg)
     sim.reset()
     

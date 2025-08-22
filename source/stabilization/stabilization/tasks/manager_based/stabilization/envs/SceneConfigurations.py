@@ -44,18 +44,18 @@ class StabilizationSceneCfg(InteractiveSceneCfg):
 
     # quadrotor
     # https://isaac-sim.github.io/IsaacLab/main/source/api/lab/isaaclab.assets.html#isaaclab.assets.ArticulationCfg
-    quadrotor = ArticulationCfg(
+    Robot = ArticulationCfg(
         prim_path="{ENV_REGEX_NS}/Robot",
         spawn=sim_utils.UsdFileCfg(
             usd_path=f"{ISAAC_NUCLEUS_DIR}/Robots/Bitcraze/Crazyflie/cf2x.usd",
 
-            # Propeller properties
+            # Rigid properties
             # https://isaac-sim.github.io/IsaacLab/main/source/api/lab/isaaclab.sim.schemas.html#isaaclab.sim.schemas.RigidBodyPropertiesCfg
 
             rigid_props=sim_utils.RigidBodyPropertiesCfg( 
                 disable_gravity=False,             
                 max_depenetration_velocity=10.0,   
-                angular_damping=True,       
+                angular_damping=0.1,       
                 enable_gyroscopic_forces=True,     
             ),
             
@@ -65,7 +65,7 @@ class StabilizationSceneCfg(InteractiveSceneCfg):
             articulation_props=sim_utils.ArticulationRootPropertiesCfg(
                 enabled_self_collisions=False,
                 solver_position_iteration_count=4,
-                solver_velocity_iteration_count=0,
+                solver_velocity_iteration_count=1,
                 sleep_threshold=0.005,
                 stabilization_threshold=0.001,
             ),
@@ -90,8 +90,8 @@ class StabilizationSceneCfg(InteractiveSceneCfg):
         actuators={
             "dummy": ImplicitActuatorCfg(
                 joint_names_expr=[".*"],
-                stiffness=0.0,
-                damping=0.0,
+                stiffness=None,
+                damping=None,
             ),
         },
     )
