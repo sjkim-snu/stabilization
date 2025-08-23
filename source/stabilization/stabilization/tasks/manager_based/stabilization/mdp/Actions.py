@@ -10,9 +10,12 @@ from isaaclab.managers import ActionTerm, ActionTermCfg
 import stabilization.tasks.manager_based.stabilization.envs as envs
 from typing import List, Optional
 from dataclasses import dataclass, field
+from isaaclab.utils import configclass
+import isaaclab.envs as env
 
 # https://isaac-sim.github.io/IsaacLab/main/source/api/lab/isaaclab.managers.html#isaaclab.managers.ActionTermCfg
 
+@configclass
 class BaseControllerCfg(ActionTermCfg):
     """Base configuration for controllers."""
 
@@ -52,20 +55,14 @@ class BaseController(ActionTerm):
         self.cfg: BaseControllerCfg = cfg
         
         # Get the robot entity from the Scene
-        self._robot = self.env.scene[self.cfg.robot_entity_name]
-        
-        # Apply action to root body
-        if self.cfg.body_name is not None:
-            self._body_ids = self._robot.root_body_indices
-        else:   
-            self._body_ids = self._robot.find_bodies(self.cfg.body_name)
+        self._robot = self._env.scene[self.cfg.robot_entity_name]
             
         # Convert rpm to rad/s
         self._rpm_to_rad = 2.0 * torch.pi / 60.0 
         self._rad_to_rpm = 60.0 / (2.0 * torch.pi)
         
         # Convert coefficients to rad/s
-        factor = (self._rad_to_rpm ** 2).item()
+        factor = (self._rad_to_rpm ** 2)
         if self.cfg.coeff_is_rpm2:
             self._k_f = self.cfg.k_f_rpm2 * factor
             self._k_m = self.cfg.k_m_rpm2 * factor  
@@ -79,19 +76,19 @@ class BaseController(ActionTerm):
         
         # Set rotor positions and spin directions
         l = self.cfg.arm_length
-        rotor_xy = torch.tensor(self.cfg.rotor_xy, dtype=torch.float32) * l
-        self.register_buffer("_rotor_pos_xy", rotor_xy)
-        self.register_buffer("_rotor_dirs", torch.tensor(self.cfg.rotor_dirs, dtype=torch.float32))
-
+        rotor_xy = torch.tensor(self.cfg.rotor_xy, dtype=torch.float32) * l   # (4,2)
+        rotor_dirs = torch.tensor(self.cfg.rotor_dirs, dtype=torch.float32)   # (4,)
+        self._rotor_pos_xy = rotor_xy
+        self._rotor_dirs   = rotor_dirs
+        
         # Set action tensors
-        device = self.env.device
-        N = self.env.num_envs
-        self._thrust = torch.zeros(N, 1, 3, device=device)
-        self._moment = torch.zeros(N, 1, 3, device=device) 
-        self._omega  = torch.zeros(N, 4, device=device)     
+        N = self._env.num_envs
+        self._thrust = torch.zeros(N, 1, 3)
+        self._moment = torch.zeros(N, 1, 3) 
+        self._omega  = torch.zeros(N, 4)     
         
     
-    def process_action(self, action: torch.Tensor) -> torch.Tensor:
+    def process_actions(self, actions: torch.Tensor) -> torch.Tensor:
         if self.cfg.clamp_actions:
             actions = actions.clamp(-1.0, 1.0)
             
@@ -99,25 +96,39 @@ class BaseController(ActionTerm):
         self._omega = u * (self._w_max - self._w_min) + self._w_min  # Scale to [w_min, w_max]
         return self._omega
     
-    def apply_action(self, action: torch.Tensor) -> None:
-        w2 = self._omega ** 2  # Square of the angular velocities
-        f  = self._k_f * w2
-        Fz = f.sum(dim=1, keepdim=True)  # Total thrust in z direction
+    def apply_actions(self) -> None:
+        w2 = self._omega ** 2                      # (N,4)
+        f  = self._k_f * w2                        # (N,4)
+
+        Fz = f.sum(dim=1)                          # (N,)
         self._thrust[:, 0, 0] = 0.0
         self._thrust[:, 0, 1] = 0.0
-        self._thrust[:, 0, 2] = Fz.squeeze(-1)
-        
-        x = self._rotor_pos_xy[:, 0]
-        y = self._rotor_pos_xy[:, 1]
-        d = self._rotor_dirs[:, None] * self._k_m * w2
-        tx = (y * d).sum(dim=1, keepdim=True)
-        ty = (-x * d).sum(dim=1, keepdim=True)
-        tz = (self._rotor_dirs * (self._k_m * w2)).sum(dim=1, keepdim=True)
-        
+        self._thrust[:, 0, 2] = Fz                 # (N,)
+
+        x = self._rotor_pos_xy[:, 0]               # (4,)
+        y = self._rotor_pos_xy[:, 1]               # (4,)
+
+        tx = (y * f).sum(dim=1)                    # (N,)
+        ty = (-x * f).sum(dim=1)                   # (N,)
+
+        tz = (self._rotor_dirs.unsqueeze(0) * (self._k_m * w2)).sum(dim=1)  # (N,)
+
         self._moment[:, 0, 0] = tx
         self._moment[:, 0, 1] = ty
         self._moment[:, 0, 2] = tz
-        
+
         self._robot.set_external_force_and_torque(
-            self._thrust, self._moment, body_ids=self._body_ids
+            self._thrust, self._moment, body_ids=self._robot.root_body_indices
         )
+        
+    @property
+    def action_dim(self) -> int:
+        return 4
+    
+    @property
+    def raw_actions(self) -> torch.Tensor:
+        return self._raw
+
+    @property
+    def processed_actions(self) -> torch.Tensor:
+        return self._omega

@@ -23,7 +23,9 @@ from stabilization_env_cfg import StabilizationEnvCfg
 
 def main():
     """Main entry."""
-    # 1) Create env config
+    
+    # Initialize the simulation context
+    sim_cfg = 
     env_cfg = StabilizationEnvCfg()
     env_cfg.scene.num_envs = args_cli.num_envs
     env_cfg.sim.device = args_cli.device  # e.g., "cuda:0" or "cpu"
