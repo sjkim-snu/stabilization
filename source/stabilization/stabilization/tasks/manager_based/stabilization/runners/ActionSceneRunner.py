@@ -102,7 +102,9 @@ def main() -> None:
         env_spacing=0.2,
     )
     scene = InteractiveScene(scene_cfg)
-
+    sim.reset()
+    scene.reset()
+    
     # Minimal env shim for ActionTerm
     env = _FakeEnv(scene, sim)
 
@@ -112,8 +114,6 @@ def main() -> None:
     )
     action_term = mdp.BaseController(act_cfg, env)
 
-    # Init sim (avoid scene.reset() until actuators/DOFs are set up)
-    sim.reset()
     # scene.reset()  # enable later if asset supports reset
 
     step = 0

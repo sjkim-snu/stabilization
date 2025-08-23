@@ -1,27 +1,34 @@
-"""
-Action configuration
-This module defines the action space for the stabilization task
-For more details, refer to the Isaac Lab documentation :
-https://isaac-sim.github.io/IsaacLab/main/source/api/lab/isaaclab.envs.mdp.html#module-isaaclab.envs.mdp.actions
-"""
-
-import torch
-import math
 from isaaclab.managers import ActionTerm, ActionTermCfg
-import stabilization.tasks.manager_based.stabilization.envs as envs
 from typing import List, Optional
 from dataclasses import dataclass, field
 from isaaclab.utils import configclass
-import isaaclab.envs as env
 
+import stabilization.tasks.manager_based.stabilization.envs as envs
+import isaaclab.envs as env
+import torch
+import math
+
+
+"""
+Action configuration
+BaseControllerCfg includes parameters for quadrotor dynamics and action processing.
+BaseController implements action, force/torque computation, and application to the quadrotor.
+"""
+
+# https://isaac-sim.github.io/IsaacLab/main/source/api/lab/isaaclab.utils.html#module-isaaclab.utils.configclass
 # https://isaac-sim.github.io/IsaacLab/main/source/api/lab/isaaclab.managers.html#isaaclab.managers.ActionTermCfg
 
 @configclass
 class BaseControllerCfg(ActionTermCfg):
-    """Base configuration for controllers."""
-
+    
+    """
+    Controller configuration
+    Coefficients are based on : https://github.com/isaac-sim/IsaacLab/discussions/1701
+    Quadrotor config based on : https://www.bitcraze.io/products/old-products/crazyflie-2-1/
+    """
+    
     robot_entity_name: str = "Robot"        # Name of the quadrotor entity
-    body_name: Optional[str] = None         # If None, apply to entire quadrotor
+    body_name: Optional[str] = None         # If None, apply physics to entire quadrotor
     
     arm_length: float = 0.046               # Length of the arm (for quadrotor)
     k_f_rpm2: float = 6.11e-8               # Thrust coefficient (N/rpm^2)
@@ -60,9 +67,13 @@ class BaseController(ActionTerm):
         device = self._robot.device
 
         if self.cfg.body_name:
-            body_ids, _ = self._robot.find_bodies(self.cfg.body_name, preserve_order=True)
+            ids, _ = self._robot.find_bodies([self.cfg.body_name], preserved_order=True)
+            if len(ids) == 0:
+                raise ValueError(f"No body matched : {self.cfg.body_name}")
+            self._body_ids = [int(ids[0])]
+        else:
+            self._body_ids = [int(getattr(self._robot, "root_body_index", 0))]
             
-        # Convert rpm to rad/s
         self._rpm_to_rad = torch.tensor(2.0 * torch.pi / 60.0, device=device)
         self._rad_to_rpm = torch.tensor(60.0 / (2.0 * torch.pi), device=device)
         
@@ -126,8 +137,16 @@ class BaseController(ActionTerm):
         self._moment[:, 0, 1] = ty
         self._moment[:, 0, 2] = tz
 
+        forces = self._thrust
+        torques = self._moment
+        
+        if forces.dim() == 2:
+            forces = forces.unsqueeze(1)
+        if torques.dim() == 2:
+            torques = torques.unsqueeze(1)
+            
         self._robot.set_external_force_and_torque(
-            self._thrust, self._moment, self._body_ids
+            forces, torques, self._body_ids
             )
         
     @property
