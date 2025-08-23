@@ -6,6 +6,7 @@ https://isaac-sim.github.io/IsaacLab/main/source/api/lab/isaaclab.envs.mdp.html#
 """
 
 import torch
+import math
 from isaaclab.managers import ActionTerm, ActionTermCfg
 import stabilization.tasks.manager_based.stabilization.envs as envs
 from typing import List, Optional
@@ -51,44 +52,52 @@ class BaseController(ActionTerm):
     """Base class for controllers"""
 
     def __init__(self, cfg: BaseControllerCfg, env) -> None:
-        super().__init__(cfg, env)
-        self.cfg: BaseControllerCfg = cfg
         
-        # Get the robot entity from the Scene
+        super().__init__(cfg, env)
+        
+        self.cfg: BaseControllerCfg = cfg
         self._robot = self._env.scene[self.cfg.robot_entity_name]
+        device = self._robot.device
+
+        if self.cfg.body_name:
+            body_ids, _ = self._robot.find_bodies(self.cfg.body_name, preserve_order=True)
             
         # Convert rpm to rad/s
-        self._rpm_to_rad = 2.0 * torch.pi / 60.0 
-        self._rad_to_rpm = 60.0 / (2.0 * torch.pi)
+        self._rpm_to_rad = torch.tensor(2.0 * torch.pi / 60.0, device=device)
+        self._rad_to_rpm = torch.tensor(60.0 / (2.0 * torch.pi), device=device)
         
         # Convert coefficients to rad/s
         factor = (self._rad_to_rpm ** 2)
         if self.cfg.coeff_is_rpm2:
-            self._k_f = self.cfg.k_f_rpm2 * factor
-            self._k_m = self.cfg.k_m_rpm2 * factor  
+            self._k_f = torch.tensor(self.cfg.k_f_rpm2, device=device) * factor
+            self._k_m = torch.tensor(self.cfg.k_m_rpm2, device=device) * factor  
         else:
-            self._k_f = self.cfg.k_f_rpm2
-            self._k_m = self.cfg.k_m_rpm2
+            self._k_f = torch.tensor(self.cfg.k_f_rpm2, device=device)
+            self._k_m = torch.tensor(self.cfg.k_m_rpm2, device=device)
         
         # Convert min/max rpm to rad/s
-        self._w_min = self.cfg.w_min_rpm * self._rpm_to_rad
-        self._w_max = self.cfg.w_max_rpm * self._rpm_to_rad
+        self._w_min = torch.tensor(self.cfg.w_min_rpm, device=device) * self._rpm_to_rad
+        self._w_max = torch.tensor(self.cfg.w_max_rpm, device=device) * self._rpm_to_rad
         
         # Set rotor positions and spin directions
         l = self.cfg.arm_length
-        rotor_xy = torch.tensor(self.cfg.rotor_xy, dtype=torch.float32) * l   # (4,2)
-        rotor_dirs = torch.tensor(self.cfg.rotor_dirs, dtype=torch.float32)   # (4,)
+        rotor_xy = torch.tensor(self.cfg.rotor_xy, dtype=torch.float32, device=device) * l   # (4,2)
+        rotor_dirs = torch.tensor(self.cfg.rotor_dirs, dtype=torch.float32, device=device)   # (4,)
         self._rotor_pos_xy = rotor_xy
         self._rotor_dirs   = rotor_dirs
         
         # Set action tensors
         N = self._env.num_envs
-        self._thrust = torch.zeros(N, 1, 3)
-        self._moment = torch.zeros(N, 1, 3) 
-        self._omega  = torch.zeros(N, 4)     
+        self._raw = torch.zeros(N, 4, device=device)
+        self._thrust = torch.zeros(N, 1, 3, device=device)
+        self._moment = torch.zeros(N, 1, 3, device=device) 
+        self._omega  = torch.zeros(N, 4, device=device)
+        self._body_ids = [0]
         
     
     def process_actions(self, actions: torch.Tensor) -> torch.Tensor:
+        
+        actions = actions.to(self._omega.device)
         if self.cfg.clamp_actions:
             actions = actions.clamp(-1.0, 1.0)
             
@@ -118,8 +127,8 @@ class BaseController(ActionTerm):
         self._moment[:, 0, 2] = tz
 
         self._robot.set_external_force_and_torque(
-            self._thrust, self._moment, body_ids=self._robot.root_body_indices
-        )
+            self._thrust, self._moment, self._body_ids
+            )
         
     @property
     def action_dim(self) -> int:

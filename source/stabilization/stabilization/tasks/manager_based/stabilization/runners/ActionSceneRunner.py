@@ -89,6 +89,7 @@ def _make_actions(mode: str, n: int, step: int, dt: float) -> torch.Tensor:
 
 def main() -> None:
     # --- Simulation context
+    
     sim_cfg = sim_utils.SimulationCfg()
     sim = sim_utils.SimulationContext(cfg=sim_cfg)
 
