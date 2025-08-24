@@ -115,7 +115,7 @@ class BaseController(ActionTerm):
         # Set rotor positions and spin directions
         l = self.cfg.arm_length
         rotor_xy = torch.tensor(self.cfg.rotor_xy, dtype=torch.float32, device=device) * l   # (4,2)
-        rotor_dirs = torch.tensor(self.cfg.rotor_dirs, dtype=torch.float32, device=device)   # (4,1)
+        rotor_dirs = torch.tensor(self.cfg.rotor_dirs, dtype=torch.float32, device=device)   # (4,)
         self._rotor_pos_xy = rotor_xy
         self._rotor_dirs   = rotor_dirs
         
@@ -125,7 +125,12 @@ class BaseController(ActionTerm):
         self._thrust = torch.zeros(N, 1, 3, device=device)    # (N,1,3) total thrust force
         self._moment = torch.zeros(N, 1, 3, device=device)    # (N,1,3) total moment/torque
         self._omega = torch.zeros(N, 4, device=device)        # (N,4) processed motor speeds (rad/s)
-
+        
+        # Get body ids and names to apply forces/torques
+        # https://isaac-sim.github.io/IsaacLab/main/source/api/lab/isaaclab.assets.html#isaaclab.assets.Articulation.find_bodies
+        ids, names = self._asset.find_bodies(".*", preserve_order=True)
+        self._body_ids = [int(ids[0])]
+        
 
     """
     Properties
@@ -183,31 +188,23 @@ class BaseController(ActionTerm):
         This function is called once per simulation step.
         """
         
-        w2 = self._omega ** 2                      # element-wise square of omega : (N,4)
-        f  = self._k_f * w2                        # thrust force from each rotor : (N,4)
+        # Compute thrust forces
+        w2 = self._omega ** 2                                   # element-wise square of omega : (N,4)
+        f  = self._k_f * w2                                     # thrust force from each rotor : (N,4)
 
-        Fz = f.sum(dim=1)                          # total thrust of each quadrotor : (N,)
-        self._thrust[:, 0, 0] = 0.0                # total thrust is always along +z in body frame       
-        self._thrust[:, 0, 1] = 0.0                # total thrust is always along +z in body frame
-        self._thrust[:, 0, 2] = Fz                 # (N,)
+        Fz = f.sum(dim=1)                                       # total thrust of each quadrotor : (N,)
+        self._thrust.zero_()                                    # Initialize to zero
+        self._thrust[:, 0, 2] = Fz                              # thrust along +z : (N,)
 
-        x = self._rotor_pos_xy[:, 0]               # (4,)
-        y = self._rotor_pos_xy[:, 1]               # (4,)
-
-        tz = (self._rotor_dirs.unsqueeze(0) * (self._k_m * w2)).sum(dim=1)  # (N,)
-
-        self._moment[:, 0, 0] = tx
-        self._moment[:, 0, 1] = ty
-        self._moment[:, 0, 2] = tz
-
-        forces = self._thrust
-        torques = self._moment
+        tz = (self._rotor_dirs * (self._k_m * w2)).sum(dim=1)   # torque around z : (N,)
+        self._moment.zero_()                                    # Initialize to zero     
+        self._moment[:, 0, 2] = tz                              # torque around +z : (N,)
         
-        if forces.dim() == 2:
-            forces = forces.unsqueeze(1)
-        if torques.dim() == 2:
-            torques = torques.unsqueeze(1)
-            
-        self._robot.set_external_force_and_torque(
-            forces, torques, self._body_ids
+        # https://isaac-sim.github.io/IsaacLab/main/source/api/lab/isaaclab.assets.html#isaaclab.assets.RigidObject.set_external_force_and_torque
+        
+        self._asset.set_external_force_and_torque(
+            forces=self._thrust,
+            torques=self._moment,
+            body_ids=self._body_ids,
+            is_global=False,
             )

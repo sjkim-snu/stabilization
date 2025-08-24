@@ -1,46 +1,23 @@
 """
-Run quadrotor scene + **Action-only** debugging in Isaac Lab (no reward/obs/managers).
-
-Usage:
-  ./isaaclab.sh -p stabilization/tasks/manager_based/stabilization/runners/runner.py \
-      --num_envs 2 --mode hover  # or roll/pitch/yaw
-
-Notes:
-- Spawns the scene, builds a minimal fake env for the Action term, and drives actions
-  each physics step.
-- `scene.reset()` is intentionally disabled to avoid actuator/DOF-related resets during
-  early debugging. Enable later if your asset supports it.
+This script runs scene and action.
+usage : python3 ActionRunner.py
 """
 
 import argparse
 from isaaclab.app import AppLauncher
 
-# -----------------
-# CLI
-# -----------------
 parser = argparse.ArgumentParser(description="Run quadrotor scene with Action-only debug loop.")
 parser.add_argument("--num_envs", type=int, default=2, help="Number of environments to spawn.")
-parser.add_argument("--mode", type=str, default="hover", choices=["hover", "roll", "pitch", "yaw"],
-                    help="Action pattern to inject for visual debugging.")
 AppLauncher.add_app_launcher_args(parser)
 args_cli = parser.parse_args()
-
-# -----------------
-# Launch App
-# -----------------
 app_launcher = AppLauncher(args_cli)
 simulation_app = app_launcher.app
 
-# -----------------
-# Imports after app launch
-# -----------------
 import torch
 import isaaclab.sim as sim_utils
 from isaaclab.scene import InteractiveScene
-
 import stabilization.tasks.manager_based.stabilization.envs as envs
 import stabilization.tasks.manager_based.stabilization.mdp as mdp
-
 
 class _FakeEnv:
     """Minimal env shim required by an ActionTerm.
