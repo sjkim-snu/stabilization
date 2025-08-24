@@ -9,6 +9,7 @@ import isaaclab.sim as sim_utils
 Scene configuration
 This module includes quadrotor, groud plane, and dome light configurations.
 If configclass is not used, many errors may occur in the simulation.
+Links below provide more information about the classes used in this file.
 """
 
 # https://isaac-sim.github.io/IsaacLab/main/source/api/lab/isaaclab.utils.html#module-isaaclab.utils.configclass
@@ -16,7 +17,6 @@ If configclass is not used, many errors may occur in the simulation.
 
 @configclass
 class StabilizationSceneCfg(InteractiveSceneCfg):
-    """Configuration for a Quadrotor scene."""
 
     # ground plane
     ground = AssetBaseCfg(
@@ -43,8 +43,7 @@ class StabilizationSceneCfg(InteractiveSceneCfg):
 
             rigid_props=sim_utils.RigidBodyPropertiesCfg( 
                 disable_gravity=False,             
-                max_depenetration_velocity=10.0,   
-                angular_damping=0.1,       
+                max_depenetration_velocity=10.0,        
                 enable_gyroscopic_forces=True,     
             ),
             
@@ -65,7 +64,7 @@ class StabilizationSceneCfg(InteractiveSceneCfg):
         # https://isaac-sim.github.io/IsaacLab/main/_modules/isaaclab/assets/articulation/articulation_cfg.html#ArticulationCfg.InitialStateCfg
 
         init_state=ArticulationCfg.InitialStateCfg(
-            pos=(0.0, 0.0, 0.5), # z potision above ground
+            pos=(0.0, 0.0, 0.1), # z potision above ground
             joint_pos={
                 ".*": 0.0,
             },

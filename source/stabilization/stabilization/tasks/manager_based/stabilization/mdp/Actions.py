@@ -1,7 +1,9 @@
 from isaaclab.managers import ActionTerm, ActionTermCfg
-from typing import List, Optional
-from dataclasses import dataclass, field
+from isaaclab.assets import AssetBase, AssetBaseCfg
+from isaaclab.envs import ManagerBasedEnv, ManagerBasedEnvCfg
+from dataclasses import dataclass
 from isaaclab.utils import configclass
+from abc import abstractmethod
 
 import stabilization.tasks.manager_based.stabilization.envs as envs
 import isaaclab.envs as env
@@ -22,66 +24,86 @@ BaseController implements action, force/torque computation, and application to t
 class BaseControllerCfg(ActionTermCfg):
     
     """
-    Controller configuration
+    Parameters for a quadrotor controller and action processing.
     Coefficients are based on : https://github.com/isaac-sim/IsaacLab/discussions/1701
     Quadrotor config based on : https://www.bitcraze.io/products/old-products/crazyflie-2-1/
     """
     
-    robot_entity_name: str = "Robot"        # Name of the quadrotor entity
-    body_name: Optional[str] = None         # If None, apply physics to entire quadrotor
+    asset_name: str = "Robot"               # Name of the quadrotor entity
     
     arm_length: float = 0.046               # Length of the arm (for quadrotor)
     k_f_rpm2: float = 6.11e-8               # Thrust coefficient (N/rpm^2)
     k_m_rpm2: float = 1.5e-9                # Motor torque coefficient (Nm/rpm^2)
-    coeff_is_rpm2: bool = True       
+    coeff_is_rpm2: bool = True              # Whether k_f and k_m are in rpm^2 units
     
     w_min_rpm: float = 0.0                  # Minimum motor rpm
     w_max_rpm: float = 35000.0              # Maximum motor rpm
     
-    rotor_dirs: List[int] = field(default_factory=lambda: [1, -1, 1, -1])  # Rotor directions
-    rotor_xy: List[List[float]] = field(
-        default_factory=lambda: [
-            [+1, +1], # Rotor 1
-            [-1, +1], # Rotor 2
-            [-1, -1], # Rotor 3
-            [+1, -1], # Rotor 4
-        ]
-    )  # Rotor positions in the quadrotor frame
+    rotor_dirs: list[float] = [+1.0, -1.0, +1.0, -1.0]     # Rotor spin directions (+1:CCW, -1:CW)
+    rotor_xy: list[list[float]] = [
+        [+1.0, +1.0],   # front left
+        [+1.0, -1.0],   # front right
+        [-1.0, -1.0],   # rear right
+        [-1.0, +1.0],   # rear left
+    ]
     
-    clamp_actions: bool = True  # Whether to clamp actions to the valid range
-
+    clamp_actions: bool = True              # Whether to clamp actions to the valid range
 
 
 
 # https://isaac-sim.github.io/IsaacLab/main/source/api/lab/isaaclab.managers.html#isaaclab.managers.ActionTerm
 
 class BaseController(ActionTerm):
-    """Base class for controllers"""
+    
+    """
+    The action term for a quadrotor controller, which defines action processing (motor speeds), 
+    thrust/torque computation, and application to the quadrotor.
+    
+    Processing of actions: This operation is performed once per environment step
+    and is responsible for pre-processing the raw actions sent to the environment.
+    
+    Applying actions: This operation is performed once per simulation step 
+    and is responsible for applying the processed actions to the asset managed by the term.
+    """
 
-    def __init__(self, cfg: BaseControllerCfg, env) -> None:
+    # https://isaac-sim.github.io/IsaacLab/main/source/api/lab/isaaclab.managers.html#isaaclab.managers.ActionTermCfg
+    # https://isaac-sim.github.io/IsaacLab/main/source/api/lab/isaaclab.envs.html#isaaclab.envs.ManagerBasedEnv
+    # https://isaac-sim.github.io/IsaacLab/main/_modules/isaaclab/managers/manager_base.html#ManagerTermBase
+    # https://isaac-sim.github.io/IsaacLab/main/source/api/lab/isaaclab.assets.html#isaaclab.assets.AssetBase
+    
+    def __init__(self, cfg: BaseControllerCfg, env: ManagerBasedEnv):
+        
+        """
+        Initialize the action term.
+        Args:
+            cfg (ActionTermCfg): Configuration for the action term.
+            env (ManagerBasedEnv): The environment to which the action term is applied.
+        """
         
         super().__init__(cfg, env)
         
-        self.cfg: BaseControllerCfg = cfg
-        self._robot = self._env.scene[self.cfg.robot_entity_name]
-        device = self._robot.device
+        """
+        How below script works:
+        1. BaseControllerCfg inherits ActionTermCfg, which defines asset_name as "Robot".
+        2. BaseController inherits ActionTerm, which takes cfg and env as input.
+        3. ActionTerm inherits ManagerTermBase, which stores cfg and env as self.cfg and self._env.
+        4. Note that env stands for ManagerBasedEnv, and cfg stands for BaseControllerCfg.
+        5. ManagerBasedEnv defines self.scene as InteractiveScene(self.cfg.scene).
+        6. Finally, self._env.scene[self.cfg.asset_name] stands for the quadrotor asset.
+        7. The quadrotor asset is of type AssetBase, which has attribute 'device'.
+        """
+        
+        self._asset: AssetBase = self._env.scene[self.cfg.asset_name]
+        device = self._asset.device
 
-        if self.cfg.body_name:
-            ids, _ = self._robot.find_bodies([self.cfg.body_name], preserved_order=True)
-            if len(ids) == 0:
-                raise ValueError(f"No body matched : {self.cfg.body_name}")
-            self._body_ids = [int(ids[0])]
-        else:
-            self._body_ids = [int(getattr(self._robot, "root_body_index", 0))]
-            
+        # Define conversion factors
         self._rpm_to_rad = torch.tensor(2.0 * torch.pi / 60.0, device=device)
         self._rad_to_rpm = torch.tensor(60.0 / (2.0 * torch.pi), device=device)
         
         # Convert coefficients to rad/s
-        factor = (self._rad_to_rpm ** 2)
         if self.cfg.coeff_is_rpm2:
-            self._k_f = torch.tensor(self.cfg.k_f_rpm2, device=device) * factor
-            self._k_m = torch.tensor(self.cfg.k_m_rpm2, device=device) * factor  
+            self._k_f = torch.tensor(self.cfg.k_f_rpm2, device=device) * (self._rad_to_rpm ** 2)
+            self._k_m = torch.tensor(self.cfg.k_m_rpm2, device=device) * (self._rad_to_rpm ** 2)
         else:
             self._k_f = torch.tensor(self.cfg.k_f_rpm2, device=device)
             self._k_m = torch.tensor(self.cfg.k_m_rpm2, device=device)
@@ -93,43 +115,84 @@ class BaseController(ActionTerm):
         # Set rotor positions and spin directions
         l = self.cfg.arm_length
         rotor_xy = torch.tensor(self.cfg.rotor_xy, dtype=torch.float32, device=device) * l   # (4,2)
-        rotor_dirs = torch.tensor(self.cfg.rotor_dirs, dtype=torch.float32, device=device)   # (4,)
+        rotor_dirs = torch.tensor(self.cfg.rotor_dirs, dtype=torch.float32, device=device)   # (4,1)
         self._rotor_pos_xy = rotor_xy
         self._rotor_dirs   = rotor_dirs
         
-        # Set action tensors
+        # Initialize action tensors
         N = self._env.num_envs
-        self._raw = torch.zeros(N, 4, device=device)
-        self._thrust = torch.zeros(N, 1, 3, device=device)
-        self._moment = torch.zeros(N, 1, 3, device=device) 
-        self._omega  = torch.zeros(N, 4, device=device)
-        self._body_ids = [0]
+        self._raw = torch.zeros(N, 4, device=device)          # (N,4) raw actions
+        self._thrust = torch.zeros(N, 1, 3, device=device)    # (N,1,3) total thrust force
+        self._moment = torch.zeros(N, 1, 3, device=device)    # (N,1,3) total moment/torque
+        self._omega = torch.zeros(N, 4, device=device)        # (N,4) processed motor speeds (rad/s)
+
+
+    """
+    Properties
+    """
+    
+    @property
+    def action_dim(self) -> int:
+        return 4  # Dimension of the action space which is 4 for quadrotor
+    
+    @property
+    def raw_actions(self) -> torch.Tensor:
+        return self._raw  # raw actions before processing
+    
+    @property
+    def processed_actions(self) -> torch.Tensor:
+        return self._omega  # processed actions (motor speeds in rad/s)
         
+    
+    """
+    Operations
+    """
     
     def process_actions(self, actions: torch.Tensor) -> torch.Tensor:
         
+        """
+        Process raw actions to compute motor speeds.
+        This function is called once per environment step.
+        
+        Args:
+            actions (torch.Tensor): Raw actions in the range [-1, 1].
+        Returns:
+            torch.Tensor: Processed motor speeds in rad/s.
+        """
+        
+        # Use same device
         actions = actions.to(self._omega.device)
+        
+        # Store raw actions (for debugging & logging)
+        self._raw = actions
+        
+        # Clamp actions if needed
         if self.cfg.clamp_actions:
             actions = actions.clamp(-1.0, 1.0)
-            
-        u = (actions + 1.0) / 2.0  # Scale to [0, 1]
-        self._omega = u * (self._w_max - self._w_min) + self._w_min  # Scale to [w_min, w_max]
+        
+        # Convert actions [-1, 1] to motor speeds omega [w_min, w_max]
+        u = (actions + 1.0) / 2.0                                       # scale to [0, 1]
+        self._omega = u * (self._w_max - self._w_min) + self._w_min     # scale to [w_min, w_max]
         return self._omega
     
-    def apply_actions(self) -> None:
-        w2 = self._omega ** 2                      # (N,4)
-        f  = self._k_f * w2                        # (N,4)
+    
+    def apply_actions(self):
+        
+        """
+        Process motor speeds to compute and apply forces/torques to the quadrotor.
+        This function is called once per simulation step.
+        """
+        
+        w2 = self._omega ** 2                      # element-wise square of omega : (N,4)
+        f  = self._k_f * w2                        # thrust force from each rotor : (N,4)
 
-        Fz = f.sum(dim=1)                          # (N,)
-        self._thrust[:, 0, 0] = 0.0
-        self._thrust[:, 0, 1] = 0.0
+        Fz = f.sum(dim=1)                          # total thrust of each quadrotor : (N,)
+        self._thrust[:, 0, 0] = 0.0                # total thrust is always along +z in body frame       
+        self._thrust[:, 0, 1] = 0.0                # total thrust is always along +z in body frame
         self._thrust[:, 0, 2] = Fz                 # (N,)
 
         x = self._rotor_pos_xy[:, 0]               # (4,)
         y = self._rotor_pos_xy[:, 1]               # (4,)
-
-        tx = (y * f).sum(dim=1)                    # (N,)
-        ty = (-x * f).sum(dim=1)                   # (N,)
 
         tz = (self._rotor_dirs.unsqueeze(0) * (self._k_m * w2)).sum(dim=1)  # (N,)
 
@@ -148,15 +211,3 @@ class BaseController(ActionTerm):
         self._robot.set_external_force_and_torque(
             forces, torques, self._body_ids
             )
-        
-    @property
-    def action_dim(self) -> int:
-        return 4
-    
-    @property
-    def raw_actions(self) -> torch.Tensor:
-        return self._raw
-
-    @property
-    def processed_actions(self) -> torch.Tensor:
-        return self._omega
