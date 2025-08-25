@@ -5,6 +5,7 @@ from isaaclab.managers import EventTermCfg as EventTerm
 from isaaclab.managers import SceneEntityCfg
 from isaaclab.utils import configclass
 import math
+from typing import Tuple
 import stabilization.tasks.manager_based.stabilization.mdp as mdp
 
 class EventFns:
@@ -22,9 +23,9 @@ class EventFns:
             (4.0, 4.0, 4.0)      # (wx_max, wy_max, wz_max)
         ),                       # rad/s     
         max_tilt_rad: float = math.pi / 3.0,   # 60 degrees
-        yaw_range: Tuple[float, float] = (-math.pi, math.pi)  # radians
-        max_omega_norm: float = 7.0  # rad/s
-    )
+        yaw_range: Tuple[float, float] = (-math.pi, math.pi),  # radians
+        max_omega_norm: float = 7.0,  # rad/s
+    ) -> None:
         """
         Event function to reset the quadrotor by throwing it into the air with random
         linear and angular velocities, and random orientation within specified limits.
@@ -79,7 +80,7 @@ class EventCfg:
     throw_on_reset = EventTerm(
         func=EventFns.throw_reset,
         mode="reset",
-        is_global_time=False
+        is_global_time=False,
         params={
             "asset_cfg": SceneEntityCfg(name="Robot"),
             "lin_vel_range": ((-2.0, -2.0, 1.0), (2.0, 2.0, 4.0)),
