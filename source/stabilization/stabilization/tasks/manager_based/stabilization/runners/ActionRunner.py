@@ -1,7 +1,7 @@
 import argparse
 from isaaclab.app import AppLauncher
 
-MANUAL_ACTION = [-0.939, -0.937, -0.939, -0.939]
+MANUAL_ACTION = [-0.939, -0.93899, -0.939, -0.939]
 
 parser = argparse.ArgumentParser(description="Run quadrotor scene with Action-only (manual actions in code).")
 parser.add_argument("--num_envs", type=int, default=10)
@@ -40,7 +40,7 @@ def main():
 
     scene_cfg = envs.StabilizationSceneCfg()
     scene_cfg.num_envs = args_cli.num_envs
-    scene_cfg.env_spacing = 2.0
+    scene_cfg.env_spacing = 0.3
     scene = InteractiveScene(scene_cfg)
     sim.reset()
     scene.reset()
