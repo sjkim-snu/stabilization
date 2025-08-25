@@ -15,6 +15,11 @@ import math
 Action configuration
 BaseControllerCfg includes parameters for quadrotor dynamics and action processing.
 BaseController implements action, force/torque computation, and application to the quadrotor.
+In this script, body frame coordinate system is defined as:
+- +x: front, +y: left, +z: up
+- Roll: rotation around +x (right-hand rule)
+- Pitch: rotation around +y (right-hand rule)
+- Yaw: rotation around +z (right-hand rule)
 """
 
 # https://isaac-sim.github.io/IsaacLab/main/source/api/lab/isaaclab.utils.html#module-isaaclab.utils.configclass
@@ -40,7 +45,7 @@ class BaseControllerCfg(ActionTermCfg):
     w_max_rpm: float = 35000.0              # Maximum motor rpm
     
     rotor_dirs: list[float] = [+1.0, -1.0, +1.0, -1.0]     # Rotor spin directions (+1:CCW, -1:CW)
-    rotor_xy: list[list[float]] = [
+    rotor_xy: list[list[float]] = [                        # Rotor positions (+x: front, +y: left)
         [+1.0, +1.0],   # front left
         [+1.0, -1.0],   # front right
         [-1.0, -1.0],   # rear right
@@ -184,20 +189,30 @@ class BaseController(ActionTerm):
     def apply_actions(self):
         
         """
-        Process motor speeds to compute and apply forces/torques to the quadrotor.
+        Process rotor speeds to compute and apply forces/torques to the quadrotor.
         This function is called once per simulation step.
         """
         
-        # Compute thrust forces
+        # Compute thrust from rotor speeds
         w2 = self._omega ** 2                                   # element-wise square of omega : (N,4)
         f  = self._k_f * w2                                     # thrust force from each rotor : (N,4)
-
         Fz = f.sum(dim=1)                                       # total thrust of each quadrotor : (N,)
+        
+        # Apply forces to the quadrotor
         self._thrust.zero_()                                    # Initialize to zero
         self._thrust[:, 0, 2] = Fz                              # thrust along +z : (N,)
 
-        tz = (self._rotor_dirs * (self._k_m * w2)).sum(dim=1)   # torque around z : (N,)
-        self._moment.zero_()                                    # Initialize to zero     
+        # Compute moments from rotor pos and dirs
+        x = self._rotor_pos_xy[:,0]                             # Rotor x positions : (4,)    
+        y = self._rotor_pos_xy[:,1]                             # Rotor y positions : (4,)   
+        tx = (f * y).sum(dim=1)                                 # Roll : (N,)
+        ty = (f * -x).sum(dim=1)                                # Pitch : (N,)
+        tz = (self._rotor_dirs * (self._k_m * w2)).sum(dim=1)   # Yaw : (N,)
+        
+        # Apply moments to the quadrotor
+        self._moment.zero_()                                    # Initialize to zero 
+        self._moment[:, 0, 0] = tx                              # torque around +x : (N,) 
+        self._moment[:, 0, 1] = ty                              # torque around +y : (N,)
         self._moment[:, 0, 2] = tz                              # torque around +z : (N,)
         
         # https://isaac-sim.github.io/IsaacLab/main/source/api/lab/isaaclab.assets.html#isaaclab.assets.RigidObject.set_external_force_and_torque
