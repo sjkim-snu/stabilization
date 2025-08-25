@@ -1,10 +1,10 @@
 import argparse
 from isaaclab.app import AppLauncher
 
-MANUAL_ACTION = [-0.935, -0.93, -0.93, -0.935]
+MANUAL_ACTION = [-0.939, -0.937, -0.939, -0.939]
 
 parser = argparse.ArgumentParser(description="Run quadrotor scene with Action-only (manual actions in code).")
-parser.add_argument("--num_envs", type=int, default=1)
+parser.add_argument("--num_envs", type=int, default=10)
 AppLauncher.add_app_launcher_args(parser)
 args_cli = parser.parse_args()
 app_launcher = AppLauncher(args_cli)
