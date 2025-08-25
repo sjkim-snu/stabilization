@@ -133,6 +133,7 @@ class BaseController(ActionTerm):
         
         # Get body ids and names to apply forces/torques
         # https://isaac-sim.github.io/IsaacLab/main/source/api/lab/isaaclab.assets.html#isaaclab.assets.Articulation.find_bodies
+        
         ids, names = self._asset.find_bodies(".*", preserve_order=True)
         self._body_ids = [int(ids[0])]
         
