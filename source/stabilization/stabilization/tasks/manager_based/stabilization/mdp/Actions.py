@@ -52,7 +52,6 @@ class BaseControllerCfg(ActionTermCfg):
         [-1.0, -1.0],   # rear right
         [-1.0, +1.0],   # rear left
     ]
-    
     clamp_actions: bool = True              # Whether to clamp actions to the valid range
 
 

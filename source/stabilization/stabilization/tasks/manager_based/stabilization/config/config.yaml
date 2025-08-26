@@ -1,0 +1,56 @@
+# =====================================================================================
+# Configuration for the RL environment and training setup.
+# Every parameters except quadrotor configuration is included here.
+
+# For more details, please refer to the documentation.
+# https://isaac-sim.github.io/IsaacLab/main/source/api/lab/isaaclab.app.html#isaaclab.app.AppLauncher
+# https://isaac-sim.github.io/IsaacLab/main/source/api/lab/isaaclab.scene.html#isaaclab.scene.InteractiveSceneCfg
+# https://isaac-sim.github.io/IsaacLab/main/source/api/lab/isaaclab.envs.html#isaaclab.envs.ManagerBasedRLEnvCfg
+# =====================================================================================
+
+
+
+
+# ─────────────────────────────────────────────────────────────────────────────────────
+# Configuration of Isaac Lab Launcher
+# This section includes basic settings for Isaac Lab and the simulation.
+# ─────────────────────────────────────────────────────────────────────────────────────
+
+Launcher:
+  HEADLESS: false           # Whether to run in headless mode
+  DEVICE: "cuda:0"          # Device to run the simulation on
+
+
+
+
+
+# ─────────────────────────────────────────────────────────────────────────────────────
+# Configuration of the Scene and Environment
+# This section includes settings for the scene and the RL environment.
+# ─────────────────────────────────────────────────────────────────────────────────────
+
+SceneCfg:
+  NUM_ENVS: 10              # Number of parallel environments
+  ENV_SPACING: 0.5          # Spacing between environments (m)
+  CLONE_IN_FABRIC: true     # If true, entities are cloned in fabric for better performance
+  FILTER_COLLISIONS: true   # If true, collisions will not occur between cloned entities
+
+EnvCfg:
+  PHYSICS_DT: 0.002         # Physics timestep
+  DECIMATION: 4             # Number of physics steps per control step
+  EPISODE_LENGTH_S: 20.0    # Length of each episode in seconds
+
+
+
+
+# ─────────────────────────────────────────────────────────────────────────────────────
+# Configuration of the action space
+# This section includes settings for the action space of the RL agent.
+# ─────────────────────────────────────────────────────────────────────────────────────
+
+ActionCfg:
+  
+
+
+  
+
