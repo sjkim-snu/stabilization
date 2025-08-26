@@ -20,6 +20,7 @@ In this script, body frame coordinate system is defined as:
 - Roll: rotation around +x (right-hand rule)
 - Pitch: rotation around +y (right-hand rule)
 - Yaw: rotation around +z (right-hand rule)
+Note that NED (North-East-Down) is not used here.
 """
 
 # https://isaac-sim.github.io/IsaacLab/main/source/api/lab/isaaclab.utils.html#module-isaaclab.utils.configclass

@@ -25,13 +25,12 @@ class ObservationFns:
         
         """
         Get the initial spawn position of the quadrotor in the environment.
+        
         Args:
             env (ManagerBasedEnv): The environment instance.
             asset_name (str): Name of the quadrotor entity.
-        
         Returns:
             spawn_position: Tensor of shape (N, 3) representing the initial spawn positions in world frame.
-        
         Note:
             default_root_state represents the default pose of each entity in its local frame.
             env_origins represents the origin positions of each entity in the global frame.
@@ -58,7 +57,6 @@ class ObservationFns:
         Args:
             env (ManagerBasedEnv): The environment instance.
             asset_cfg (SceneEntityCfg): Name of the quadrotor entity.
-        
         Returns:
             lin_vel_body: Tensor of shape (N, 3) representing the linear velocity in body frame.
         """
@@ -79,7 +77,6 @@ class ObservationFns:
         Args:
             env (ManagerBasedEnv): The environment instance.
             asset_cfg (SceneEntityCfg): Name of the quadrotor entity.
-        
         Returns:
             position_error: Tensor of shape (N, 3) representing the position error in world frame.
         """
@@ -100,9 +97,9 @@ class ObservationFns:
         
         """
         Convert a quaternion to orientation angles.
+        
         Args:
             quaternion (torch.Tensor): Tensor of shape (N, 4)
-        
         Returns:
             A tuple containing roll, pitch, and yaw angles in radians.
             Each angle tensor has shape (N,).
@@ -122,7 +119,6 @@ class ObservationFns:
         Args:
             env (ManagerBasedEnv): The environment instance.
             asset_cfg (SceneEntityCfg): Name of the quadrotor entity.
-        
         Returns:
             roll: Tensor of shape (N,) representing the roll angles in radians.
         """
@@ -130,7 +126,7 @@ class ObservationFns:
         asset = env.scene[asset_cfg.name]
         quaternion = asset.data.root_quat_w
         roll, _, _ = ObservationFns.quaternion_to_orientation(quaternion)
-        return roll # (N,)
+        return roll.unsqueeze(-1) # (N, 1)
     
     @staticmethod
     def pitch_current(
@@ -143,7 +139,6 @@ class ObservationFns:
         Args:
             env (ManagerBasedEnv): The environment instance.
             asset_cfg (SceneEntityCfg): Name of the quadrotor entity.
-        
         Returns:
             pitch: Tensor of shape (N,) representing the pitch angles in radians.
         """
@@ -151,7 +146,7 @@ class ObservationFns:
         asset = env.scene[asset_cfg.name]
         quaternion = asset.data.root_quat_w
         _, pitch, _ = ObservationFns.quaternion_to_orientation(quaternion)
-        return pitch # (N,)
+        return pitch.unsqueeze(-1) # (N, 1)
     
     @staticmethod
     def yaw_current(
@@ -164,7 +159,6 @@ class ObservationFns:
         Args:
             env (ManagerBasedEnv): The environment instance.
             asset_cfg (SceneEntityCfg): Name of the quadrotor entity.
-        
         Returns:
             yaw: Tensor of shape (N,) representing the yaw angles in radians.
         """
@@ -172,7 +166,7 @@ class ObservationFns:
         asset = env.scene[asset_cfg.name]
         quaternion = asset.data.root_quat_w
         _, _, yaw = ObservationFns.quaternion_to_orientation(quaternion)
-        return yaw # (N,)
+        return yaw.unsqueeze(-1) # (N, 1)
     
     @staticmethod
     def ang_vel_body(
@@ -185,7 +179,6 @@ class ObservationFns:
         Args:
             env (ManagerBasedEnv): The environment instance.
             asset_cfg (SceneEntityCfg): Name of the quadrotor entity.
-        
         Returns:
             ang_vel_body: Tensor of shape (N, 3) representing the angular velocity in body frame.
         """
@@ -204,7 +197,7 @@ class ObservationsCfg:
         
         pos_err_w = ObsTerm(
             func=ObservationFns.position_error_w,
-            params={"asset_cfg": SceneEntityCfg(name="Robot"), "target_pos": None},
+            params={"asset_cfg": SceneEntityCfg(name="Robot")},
         )
         
         lin_vel_b = ObsTerm(

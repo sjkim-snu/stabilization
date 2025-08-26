@@ -64,7 +64,7 @@ class StabilizationSceneCfg(InteractiveSceneCfg):
         # https://isaac-sim.github.io/IsaacLab/main/_modules/isaaclab/assets/articulation/articulation_cfg.html#ArticulationCfg.InitialStateCfg
 
         init_state=ArticulationCfg.InitialStateCfg(
-            pos=(0.0, 0.0, 0.1), # z potision above ground
+            pos=(0.0, 0.0, 0.5), # z position above ground
             joint_pos={
                 ".*": 0.0,
             },

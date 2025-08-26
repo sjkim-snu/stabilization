@@ -1,11 +1,12 @@
-import torch
-import isaaclab.utils.math as math_utils
-from isaaclab.envs import ManagerBasedEnv
 from isaaclab.managers import EventTermCfg as EventTerm
 from isaaclab.managers import SceneEntityCfg
+from isaaclab.envs import ManagerBasedEnv
 from isaaclab.utils import configclass
-import math
 from typing import Tuple
+
+import math
+import torch
+import isaaclab.utils.math as math_utils
 import stabilization.tasks.manager_based.stabilization.mdp as mdp
 
 class EventFns:
@@ -13,6 +14,7 @@ class EventFns:
     @staticmethod
     def throw_reset(
         env: ManagerBasedEnv,
+        env_ids: torch.Tensor,
         asset_cfg: SceneEntityCfg = SceneEntityCfg(name="Robot"),
         lin_vel_range: Tuple[Tuple[float, float, float], Tuple[float, float, float]] = (
             (-2.0, -2.0, 1.0),   # (vx_min, vy_min, vz_min) 
@@ -26,6 +28,7 @@ class EventFns:
         yaw_range: Tuple[float, float] = (-math.pi, math.pi),  # radians
         max_omega_norm: float = 7.0,  # rad/s
     ) -> None:
+        
         """
         Event function to reset the quadrotor by throwing it into the air with random
         linear and angular velocities, and random orientation within specified limits.
@@ -51,7 +54,7 @@ class EventFns:
         roll = math_utils.sample_uniform(-max_tilt_rad, max_tilt_rad, N, device=device) # (N,)
         pitch = math_utils.sample_uniform(-max_tilt_rad, max_tilt_rad, N, device=device) # (N,)
         yaw = math_utils.sample_uniform(yaw_range[0], yaw_range[1], N, device=device) # (N,)
-        quat_w = math_utils.euler_to_quaternion(roll, pitch, yaw) # (N, 4)
+        quat_w = math_utils.quat_from_euler_xyz(roll, pitch, yaw) # (N, 4)
         
         # Randomize linear velocity
         lin_vel_min = torch.tensor(lin_vel_range[0], dtype=torch.float32, device=device)  # (3,)
@@ -76,6 +79,8 @@ class EventFns:
         
 @configclass
 class EventCfg:
+
+    # https://isaac-sim.github.io/IsaacLab/main/_modules/isaaclab/managers/event_manager.html#EventManager
     
     throw_on_reset = EventTerm(
         func=EventFns.throw_reset,

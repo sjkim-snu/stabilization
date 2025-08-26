@@ -1,3 +1,5 @@
+# Terminations.py
+
 import math
 import torch
 from typing import Tuple
@@ -27,24 +29,26 @@ def _is_stable_from_obs(
     - 위치: spawn 기준 오차-norm <= pos_tol_m
     - 속도: 바디 프레임 선속/각속 norm이 임계치 이하
     - 자세: roll/pitch만 포함한 tilt-norm <= tilt_tol_rad (yaw 제외)
+    반환: (N,) torch.bool
     """
     # 위치 오차 (spawn 기준)
     pos_err_w = mdp.ObservationFns.position_error_w(env, asset_cfg)  # (N, 3)
-    within_pos = torch.linalg.norm(pos_err_w, dim=-1) <= pos_tol_m
+    within_pos = torch.linalg.norm(pos_err_w, dim=-1) <= pos_tol_m   # (N,)
 
     # 선/각속도 (body)
-    lin_vel_b = mdp.ObservationFns.lin_vel_body(env, asset_cfg)     # (N, 3)
-    ang_vel_b = mdp.ObservationFns.ang_vel_body(env, asset_cfg)     # (N, 3)
-    within_lin = torch.linalg.norm(lin_vel_b, dim=-1) <= lin_vel_tol_mps
-    within_ang = torch.linalg.norm(ang_vel_b, dim=-1) <= ang_vel_tol_radps
+    lin_vel_b = mdp.ObservationFns.lin_vel_body(env, asset_cfg)      # (N, 3)
+    ang_vel_b = mdp.ObservationFns.ang_vel_body(env, asset_cfg)      # (N, 3)
+    within_lin = torch.linalg.norm(lin_vel_b, dim=-1) <= lin_vel_tol_mps   # (N,)
+    within_ang = torch.linalg.norm(ang_vel_b, dim=-1) <= ang_vel_tol_radps # (N,)
 
     # 기울기(tilt): roll/pitch만 사용 (yaw는 호버링에 독립)
-    roll = mdp.ObservationFns.roll_current(env, asset_cfg)           # (N,)
-    pitch = mdp.ObservationFns.pitch_current(env, asset_cfg)         # (N,)
-    tilt = torch.sqrt(roll * roll + pitch * pitch)                   # (N,)
-    within_tilt = tilt <= tilt_tol_rad
+    # roll/pitch가 (N,1)일 가능성이 있어 (N,)으로 맞춤
+    roll  = mdp.ObservationFns.roll_current(env, asset_cfg).squeeze(-1)   # (N,)
+    pitch = mdp.ObservationFns.pitch_current(env, asset_cfg).squeeze(-1)  # (N,)
+    tilt  = torch.sqrt(roll * roll + pitch * pitch)                        # (N,)
+    within_tilt = tilt <= tilt_tol_rad                                     # (N,)
 
-    return within_pos & within_lin & within_ang & within_tilt
+    return (within_pos & within_lin & within_ang & within_tilt)            # (N,)
 
 
 class TerminationFns:
@@ -64,10 +68,10 @@ class TerminationFns:
         roll/pitch로 계산한 tilt = sqrt(roll^2 + pitch^2) > 임계값 → 뒤집힘
         (yaw는 무시)
         """
-        roll = mdp.ObservationFns.roll_current(env, asset_cfg)
-        pitch = mdp.ObservationFns.pitch_current(env, asset_cfg)
-        tilt = torch.sqrt(roll * roll + pitch * pitch)
-        return tilt > tilt_threshold_rad
+        roll  = mdp.ObservationFns.roll_current(env, asset_cfg).squeeze(-1)   # (N,)
+        pitch = mdp.ObservationFns.pitch_current(env, asset_cfg).squeeze(-1)  # (N,)
+        tilt  = torch.sqrt(roll * roll + pitch * pitch)                        # (N,)
+        return (tilt > tilt_threshold_rad)                                     # (N,)
 
     @staticmethod
     def far_from_spawn_from_obs(
@@ -79,8 +83,8 @@ class TerminationFns:
         스폰 위치로부터의 3D 거리(= |position_error_w|)가 임계값 초과 → 종료
         """
         pos_err_w = mdp.ObservationFns.position_error_w(env, asset_cfg)  # (N, 3)
-        dist = torch.linalg.norm(pos_err_w, dim=-1)
-        return dist > dist_threshold_m
+        dist = torch.linalg.norm(pos_err_w, dim=-1)                      # (N,)
+        return (dist > dist_threshold_m)                                  # (N,)
 
     @staticmethod
     def crashed_from_obs(
@@ -92,11 +96,10 @@ class TerminationFns:
         충돌 판정(관측 기반):
         절대 고도 z = spawn_z + pos_err_z <= z_min_m 이면 '지면 충돌'로 간주.
         """
-        # 절대 위치 z 계산: spawn + error
-        spawn_w = mdp.ObservationFns.spawn_position_w(env, asset_cfg.name)  # (N, 3)
-        pos_err_w = mdp.ObservationFns.position_error_w(env, asset_cfg)     # (N, 3)
-        z_abs = (spawn_w + pos_err_w)[..., 2]
-        return z_abs <= z_min_m
+        spawn_w   = mdp.ObservationFns.spawn_position_w(env, asset_cfg.name)   # (N, 3)
+        pos_err_w = mdp.ObservationFns.position_error_w(env, asset_cfg)        # (N, 3)
+        z_abs = (spawn_w + pos_err_w)[..., 2]                                   # (N,)
+        return (z_abs <= z_min_m)                                               # (N,)
 
     @staticmethod
     def stabilized_from_obs(
@@ -113,7 +116,7 @@ class TerminationFns:
         """
         return _is_stable_from_obs(
             env, asset_cfg, pos_tol_m, lin_vel_tol_mps, ang_vel_tol_radps, tilt_tol_rad
-        )
+        )  # (N,)
 
     @staticmethod
     def not_stabilized_timeout_from_obs(
@@ -130,12 +133,19 @@ class TerminationFns:
         - 경과 스텝 * env.step_dt >= timeout_s 이고
         - 해당 시점에 안정화 조건 미충족 → True
         """
-        steps_elapsed = env.episode_length_buf  # (N,)
+        # 환경에 따라 progress_buf / episode_length_buf / episode_step_count 중 하나를 사용
+        if hasattr(env, "episode_length_buf"):
+            steps_elapsed = env.episode_length_buf.view(-1)  # (N,)
+        elif hasattr(env, "progress_buf"):
+            steps_elapsed = env.progress_buf.view(-1)        # (N,)
+        else:
+            steps_elapsed = env.episode_step_count.view(-1)  # (N,)
+
         steps_limit = int(timeout_s / env.step_dt + 0.5)
         is_stable = _is_stable_from_obs(
             env, asset_cfg, pos_tol_m, lin_vel_tol_mps, ang_vel_tol_radps, tilt_tol_rad
-        )
-        return (steps_elapsed >= steps_limit) & (~is_stable)
+        )  # (N,)
+        return ((steps_elapsed >= steps_limit) & (~is_stable))  # (N,)
 
     @staticmethod
     def state_nan_or_inf_from_obs(
@@ -146,23 +156,23 @@ class TerminationFns:
         수치 불안정 보호(관측 기반):
         관측으로 사용하는 주요 항목들에서 NaN/Inf가 검출되면 종료.
         """
-        roll = mdp.ObservationFns.roll_current(env, asset_cfg)
-        pitch = mdp.ObservationFns.pitch_current(env, asset_cfg)
-        yaw = mdp.ObservationFns.yaw_current(env, asset_cfg)
-        pos_err_w = mdp.ObservationFns.position_error_w(env, asset_cfg)
-        lin_vel_b = mdp.ObservationFns.lin_vel_body(env, asset_cfg)
-        ang_vel_b = mdp.ObservationFns.ang_vel_body(env, asset_cfg)
+        # roll/pitch/yaw는 (N,1)일 수 있으므로 (N,)로 맞춘 뒤 스택
+        roll  = mdp.ObservationFns.roll_current(env, asset_cfg).squeeze(-1)    # (N,)
+        pitch = mdp.ObservationFns.pitch_current(env, asset_cfg).squeeze(-1)   # (N,)
+        yaw   = mdp.ObservationFns.yaw_current(env, asset_cfg).squeeze(-1)     # (N,)
+        pos_err_w = mdp.ObservationFns.position_error_w(env, asset_cfg)        # (N, 3)
+        lin_vel_b = mdp.ObservationFns.lin_vel_body(env, asset_cfg)            # (N, 3)
+        ang_vel_b = mdp.ObservationFns.ang_vel_body(env, asset_cfg)            # (N, 3)
 
-        # (N,) 텐서들 → (N,1)로 만들어 함께 검사
-        scalars = torch.stack([roll, pitch, yaw], dim=-1)  # (N, 3)
-        mats = torch.cat([pos_err_w, lin_vel_b, ang_vel_b], dim=-1)  # (N, 9)
+        scalars = torch.stack([roll, pitch, yaw], dim=-1)                       # (N, 3)
+        mats = torch.cat([pos_err_w, lin_vel_b, ang_vel_b], dim=-1)             # (N, 9)
 
         bad = (
             torch.isnan(scalars).any(dim=-1)
             | torch.isinf(scalars).any(dim=-1)
             | torch.isnan(mats).any(dim=-1)
             | torch.isinf(mats).any(dim=-1)
-        )
+        )  # (N,)
         return bad
 
 

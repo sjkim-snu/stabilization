@@ -6,6 +6,11 @@ Usage (example):
       --num_envs 16 --renderer RayTracedLighting
 """
 
+# -----------------
+# Manual action (always applied)
+# -----------------
+MANUAL_ACTION = [-0.939, -0.939, -0.939, -0.939]  # each in [-1, 1]
+
 import argparse
 from isaaclab.app import AppLauncher
 
@@ -27,7 +32,6 @@ simulation_app = app_launcher.app
 import torch
 from isaaclab.envs import ManagerBasedRLEnv, ManagerBasedRLEnvCfg
 from isaaclab.utils import configclass
-from isaaclab.managers import ObservationGroupCfg as ObsGroup
 from isaaclab.managers import SceneEntityCfg
 
 # Project modules
@@ -102,13 +106,14 @@ class StabilizationEnvCfg(ManagerBasedRLEnvCfg):
 def main():
     # Build env
     env_cfg = StabilizationEnvCfg()
-    # device는 AppLauncher 인자에 따라 설정됨
     env_cfg.sim.device = args_cli.device
 
     env = ManagerBasedRLEnv(cfg=env_cfg)
 
-    # 엔티티 핸들 (로그 출력용)
-    robot_entity = SceneEntityCfg(name="Robot")
+    # Manual action tensor (broadcast to all envs each step)
+    manual_action_tensor = torch.tensor(
+        MANUAL_ACTION, device=env.action_manager.action.device, dtype=env.action_manager.action.dtype
+    ).clamp(-1.0, 1.0)  # 안전 범위 고정
 
     step = 0
     while simulation_app.is_running():
@@ -117,22 +122,20 @@ def main():
             if step % 600 == 0:
                 env.reset()
 
-            # 아직 학습 전이므로 0-action으로 step (정책 연결 시 교체)
-            actions = torch.zeros_like(env.action_manager.action)
+            # 항상 수동 액션 적용: (4,) -> (num_envs, 4)
+            actions = manual_action_tensor.unsqueeze(0).expand_as(env.action_manager.action)
             obs, rew, terminated, truncated, info = env.step(actions)
 
             # -----------------
             # Monitoring (env0)
             # -----------------
             if step % 60 == 0:
-                # 위치
                 robot = env.scene["Robot"]
                 root_state = robot.data.root_state_w  # (N, 13): pos(3), quat(4), linvel(3), angvel(3)
                 p0 = root_state[0, :3]
 
-                # 자세: 프로젝트의 공용 관측 헬퍼를 사용(중복/오류 방지)
+                # 자세: 공용 관측 헬퍼 사용
                 quat_w = robot.data.root_quat_w      # (N, 4) world-frame quaternion (xyzw)
-                # ObservationFns.quaternion_to_orientation -> (roll, pitch, yaw)
                 r, p, y = mdp.ObservationFns.quaternion_to_orientation(quat_w)
                 rpy0 = (r[0].item(), p[0].item(), y[0].item())
 
