@@ -13,11 +13,10 @@ from isaaclab.utils import configclass
 from isaaclab.managers import SceneEntityCfg
 from stabilization.tasks.manager_based.stabilization.config import load_parameters
 
-# Project modules
 import stabilization.tasks.manager_based.stabilization.envs as envs
 import stabilization.tasks.manager_based.stabilization.mdp as mdp
+import Logger
 
-# Load configuration from YAML file
 CONFIG = load_parameters()
 
 @configclass
@@ -61,6 +60,14 @@ def main():
     env_cfg.sim.headless = CONFIG["LAUNCHER"]["HEADLESS"]
     env = ManagerBasedRLEnv(cfg=env_cfg)
 
+    csv_logger = Logger.EpisodeCSVLogger(
+    num_envs=env.num_envs,
+    cfg=Logger.CSVLoggerCfg(
+        device=CONFIG["LAUNCHER"]["DEVICE"],
+        policy_dt_s=CONFIG["ENV"]["PHYSICS_DT"] * CONFIG["ENV"]["DECIMATION"],
+        ),
+    )
+
     use_manual = CONFIG["LAUNCHER"]["USE_MANUAL_ACTION"]
     if use_manual:
         manual_action_tensor = torch.tensor(
@@ -84,14 +91,17 @@ def main():
 
             obs, rew, terminated, truncated, info = env.step(actions)
 
-            # Logging
+            dones = (terminated | truncated)
+            rew_terms_step = info.get("rew_terms", None) if isinstance(info, dict) else None
+            csv_logger.log_step(rewards=rew, dones=dones, rew_terms_step=rew_terms_step, term_mgr=env.termination_manager)
+
             if step % 125 == 0:
-                pos_err = mdp.ObservationFns.position_error_w(env, asset)[0]        # (3,)
-                lin_b   = mdp.ObservationFns.lin_vel_body(env, asset)[0]            # (3,)
-                ang_b   = mdp.ObservationFns.ang_vel_body(env, asset)[0]            # (3,)
-                roll    = mdp.ObservationFns.roll_current(env, asset)[0].item()     # scalar
-                pitch   = mdp.ObservationFns.pitch_current(env, asset)[0].item()    # scalar
-                yaw     = mdp.ObservationFns.yaw_current(env, asset)[0].item()      # scalar
+                pos_err = mdp.ObservationFns.position_error_w(env, asset)[0]
+                lin_b   = mdp.ObservationFns.lin_vel_body(env, asset)[0]
+                ang_b   = mdp.ObservationFns.ang_vel_body(env, asset)[0]
+                roll    = mdp.ObservationFns.roll_current(env, asset)[0].item()
+                pitch   = mdp.ObservationFns.pitch_current(env, asset)[0].item()
+                yaw     = mdp.ObservationFns.yaw_current(env, asset)[0].item()
 
                 print(
                     f"[env0] pos_err_w=({pos_err[0]:+.3f},{pos_err[1]:+.3f},{pos_err[2]:+.3f})  "
@@ -103,6 +113,7 @@ def main():
 
             step += 1
 
+    csv_logger.close()
     env.close()
 
 

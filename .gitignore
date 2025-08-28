@@ -1,3 +1,6 @@
+# Logs
+source/stabilization/stabilization/tasks/manager_based/stabilization/log/*
+
 # C++
 **/cmake-build*/
 **/build*/
