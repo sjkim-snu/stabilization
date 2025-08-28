@@ -1,7 +1,7 @@
 import argparse
 from isaaclab.app import AppLauncher
 
-MANUAL_ACTION = [-0.937, -0.94, -0.937, -0.937]
+MANUAL_ACTION = [-0.937, -0.9371, -0.937, -0.9371]
 
 parser = argparse.ArgumentParser(description="Run quadrotor scene with Action-only (manual actions in code).")
 parser.add_argument("--num_envs", type=int, default=10)

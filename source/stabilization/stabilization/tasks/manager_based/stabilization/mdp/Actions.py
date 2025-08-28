@@ -10,7 +10,6 @@ import isaaclab.envs as env
 import torch
 import math
 
-
 """
 Action configuration
 BaseControllerCfg includes parameters for quadrotor dynamics and action processing.

@@ -17,7 +17,6 @@ def l2_norm(tensor: torch.Tensor) -> torch.Tensor:
     
     Args:
         tensor (torch.Tensor): Input tensor of shape
-    
     Returns:
         torch.Tensor: L2 norm of shape 
     """
@@ -32,10 +31,8 @@ def sigmoid(norm: torch.Tensor, k: float) -> torch.Tensor:
     Args:
         norm (torch.Tensor): Input tensor.
         k (float): Steepness parameter.
-    
     Returns:
         torch.Tensor: Output tensor after applying the sigmoid function.
-    
     Note: 
         Sigmoid returns the value of (0, 1] for norm in [0, inf).
     """
@@ -51,10 +48,8 @@ def k_from_half(norm_half: float) -> float:
     
     Args:
         norm_half (float): The point at which the sigmoid function reaches half its maximum value.
-    
     Returns:
         float: The steepness parameter k.
-    
     Note:
         This is derived from the equation 0.5 = 2 / (1 + exp(k * norm_half)).
     """
@@ -78,10 +73,8 @@ class RewardFns:
             env (ManagerBasedEnv): The environment instance.
             asset_cfg (SceneEntityCfg): Name of the quadrotor entity.
             norm_half (float): Half point for the sigmoid function.
-        
         Returns:
             reward: Tensor of shape (N,) representing the position error reward.
-            
         Note:
             The reward is 1 when the position error is zero,
             and 0.5 when the position error equals norm_half.
@@ -106,10 +99,8 @@ class RewardFns:
             env (ManagerBasedEnv): The environment instance.
             asset_cfg (SceneEntityCfg): Name of the quadrotor entity.
             norm_half (float): Half point for the sigmoid function.
-        
         Returns:
             reward: Tensor of shape (N,) representing the linear velocity reward.
-            
         Note:
             The reward is 1 when the linear velocity is zero,
             and 0.5 when the linear velocity equals norm_half.
@@ -134,10 +125,8 @@ class RewardFns:
             env (ManagerBasedEnv): The environment instance.
             asset_cfg (SceneEntityCfg): Name of the quadrotor entity.
             norm_half (float): Half point for the sigmoid function.
-        
         Returns:
             reward: Tensor of shape (N,) representing the angular velocity reward.
-            
         Note:
             The reward is 1 when the angular velocity is zero,
             and 0.5 when the angular velocity equals norm_half.
@@ -155,16 +144,19 @@ class RewardFns:
         asset_cfg: SceneEntityCfg = SceneEntityCfg(name="Robot"), 
         norm_half: float = 0.5
     ) -> torch.Tensor:
+        
         """
         Reward based on the orientation (roll, pitch, yaw) using a sigmoid function.
         Returns (N,) float tensor.
         """
-        # roll/pitch/yaw 가 (N,) 이든 (N,1)이든 일관되게 (N,1)로 맞춘 뒤 결합
+        
+        # Extract roll, pitch, yaw and reshape to (N, 1)
         roll  = mdp.ObservationFns.roll_current(env, asset_cfg).reshape(-1, 1)   # (N,1)
         pitch = mdp.ObservationFns.pitch_current(env, asset_cfg).reshape(-1, 1)  # (N,1)
         yaw   = mdp.ObservationFns.yaw_current(env, asset_cfg).reshape(-1, 1)    # (N,1)
 
-        orientation = torch.cat([roll, pitch, yaw], dim=1)  # (N,3)
+        # Combine to (N, 3)
+        orientation = torch.cat([roll, pitch, yaw], dim=1)  # (N, 3)
         orientation_norm = l2_norm(orientation)             # (N,)
         k = k_from_half(norm_half)
         orientation_reward = sigmoid(orientation_norm, k)   # (N,)

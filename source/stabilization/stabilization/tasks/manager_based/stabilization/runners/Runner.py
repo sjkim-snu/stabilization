@@ -33,11 +33,11 @@ import torch
 from isaaclab.envs import ManagerBasedRLEnv, ManagerBasedRLEnvCfg
 from isaaclab.utils import configclass
 from isaaclab.managers import SceneEntityCfg
+from stabilization.tasks.manager_based.stabilization.config import load_parameters
 
 # Project modules
 import stabilization.tasks.manager_based.stabilization.envs as envs      # Scenes.py (StabilizationSceneCfg)
-import stabilization.tasks.manager_based.stabilization.mdp as mdp        # Actions/Observations/Rewards/Events/Terminations
-
+import stabilization.tasks.manager_based.stabilization.mdp as mdp       # Actions/Observations/Rewards/Events/Terminations
 
 # -----------------
 # Bridge Configs
