@@ -8,6 +8,10 @@ import math
 import torch
 import isaaclab.utils.math as math_utils
 import stabilization.tasks.manager_based.stabilization.mdp as mdp
+from stabilization.tasks.manager_based.stabilization.config import load_parameters
+
+# Load configuration from YAML file
+CONFIG = load_parameters()
 
 class EventFns:
     
@@ -15,18 +19,12 @@ class EventFns:
     def throw_reset(
         env: ManagerBasedEnv,
         env_ids: torch.Tensor,
-        asset_cfg: SceneEntityCfg = SceneEntityCfg(name="Robot"),
-        lin_vel_range: Tuple[Tuple[float, float, float], Tuple[float, float, float]] = (
-            (-2.0, -2.0, 1.0),   # (vx_min, vy_min, vz_min) 
-            (2.0, 2.0, 4.0)      # (vx_max, vy_max, vz_max)
-        ),                       # m/s
-        ang_vel_range: Tuple[Tuple[float, float, float], Tuple[float, float, float]] = (
-            (-4.0, -4.0, -4.0),  # (wx_min, wy_min, wz_min)
-            (4.0, 4.0, 4.0)      # (wx_max, wy_max, wz_max)
-        ),                       # rad/s     
-        max_tilt_rad: float = math.pi / 3.0,   # 60 degrees
-        yaw_range: Tuple[float, float] = (-math.pi, math.pi),  # radians
-        max_omega_norm: float = 7.0,  # rad/s
+        lin_vel_range: Tuple[Tuple[float, float, float], Tuple[float, float, float]],
+        ang_vel_range: Tuple[Tuple[float, float, float], Tuple[float, float, float]],
+        max_tilt_rad: float,
+        yaw_range: Tuple[float, float],
+        max_omega_norm: float,
+        asset_cfg: SceneEntityCfg = SceneEntityCfg(name="Robot")
     ) -> None:
         
         """
@@ -88,9 +86,17 @@ class EventCfg:
         is_global_time=False,
         params={
             "asset_cfg": SceneEntityCfg(name="Robot"),
-            "lin_vel_range": ((-2.0, -2.0, 1.0), (2.0, 2.0, 4.0)),
-            "ang_vel_range": ((-4.0, -4.0, -4.0), (4.0, 4.0, 4.0)),
-            "max_tilt_rad": math.pi / 3.0,
-            "yaw_range": (-math.pi, math.pi),
-            "max_omega_norm": 7.0,},
+            "lin_vel_range": (
+                CONFIG["EVENT"]["LIN_VEL_MIN"], 
+                CONFIG["EVENT"]["LIN_VEL_MAX"]
+                ),
+            "ang_vel_range": (
+                CONFIG["EVENT"]["ANG_VEL_MIN"], 
+                CONFIG["EVENT"]["ANG_VEL_MAX"]
+                ),
+            "max_tilt_rad": math.radians(CONFIG["EVENT"]["TILT_DEGREE_MAX"]),
+            "yaw_range": (math.radians(CONFIG["EVENT"]["YAW_DEGREE_RANGE"][0]), 
+                          math.radians(CONFIG["EVENT"]["YAW_DEGREE_RANGE"][1])),
+            "max_omega_norm": CONFIG["EVENT"]["OMEGA_NORM_MAX"],
+        },
     )

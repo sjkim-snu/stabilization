@@ -4,10 +4,14 @@ from isaaclab.managers import SceneEntityCfg
 from isaaclab.envs import ManagerBasedEnv
 from isaaclab.utils import configclass
 from typing import Tuple
+from stabilization.tasks.manager_based.stabilization.config import load_parameters
 
 import math
 import torch
 import stabilization.tasks.manager_based.stabilization.mdp as mdp
+
+# Load configuration from YAML file
+CONFIG = load_parameters()
 
 """
 Helper functions
@@ -69,8 +73,8 @@ class TerminationFns:
     @staticmethod
     def is_flipped(
         env: ManagerBasedEnv,
+        tilt_threshold_rad: float,
         asset_cfg: SceneEntityCfg = SceneEntityCfg(name="Robot"),
-        tilt_threshold_rad: float = math.radians(90.0),
     ) -> torch.Tensor:
         
         """
@@ -92,8 +96,8 @@ class TerminationFns:
     @staticmethod
     def is_far_from_spawn(
         env: ManagerBasedEnv,
-        asset_cfg: SceneEntityCfg = SceneEntityCfg(name="Robot"),
-        dist_threshold_m: float = 10.0,
+        dist_threshold_m: float,
+        asset_cfg: SceneEntityCfg = SceneEntityCfg(name="Robot")
     ) -> torch.Tensor:
         
         """
@@ -115,8 +119,8 @@ class TerminationFns:
     @staticmethod
     def is_crashed(
         env: ManagerBasedEnv,
+        z_min_m: float,
         asset_cfg: SceneEntityCfg = SceneEntityCfg(name="Robot"),
-        z_min_m: float = 0.02,
     ) -> torch.Tensor:
         
         """
@@ -133,11 +137,11 @@ class TerminationFns:
     @staticmethod
     def is_stabilized(
         env: ManagerBasedEnv,
+        pos_tol_m: float,
+        lin_vel_tol_mps: float,
+        ang_vel_tol_radps: float,
+        tilt_tol_rad: float,
         asset_cfg: SceneEntityCfg = SceneEntityCfg(name="Robot"),
-        pos_tol_m: float = 0.20,
-        lin_vel_tol_mps: float = 0.20,
-        ang_vel_tol_radps: float = 0.50,
-        tilt_tol_rad: float = math.radians(8.0),
     ) -> torch.Tensor:
         
         """
@@ -193,39 +197,44 @@ class TerminationsCfg:
 
     flipped = DoneTerm(
         func=TerminationFns.is_flipped,
-        params={"asset_cfg": SceneEntityCfg(name="Robot"), "tilt_threshold_rad": math.radians(90.0)},
+        params={
+            "asset_cfg": SceneEntityCfg(name="Robot"), 
+            "tilt_threshold_rad": math.radians(CONFIG["TERMINATION"]["FLIP_TILT_DEGREE"])},
         time_out=False,
     )
 
     far_from_spawn = DoneTerm(
         func=TerminationFns.is_far_from_spawn,
-        params={"asset_cfg": SceneEntityCfg(name="Robot"), "dist_threshold_m": 10.0},
+        params={
+            "asset_cfg": SceneEntityCfg(name="Robot"), 
+            "dist_threshold_m": CONFIG["TERMINATION"]["DIST_THRESHOLD"],
+        },
         time_out=False,
     )
 
-    # 3) 지면 충돌(z <= 0.02 m) → 실패 종료
     crashed = DoneTerm(
         func=TerminationFns.is_crashed,
-        params={"asset_cfg": SceneEntityCfg(name="Robot"), "z_min_m": 0.02},
+        params={
+            "asset_cfg": SceneEntityCfg(name="Robot"), 
+            "z_min_m": CONFIG["TERMINATION"]["ALTITUDE_THRESHOLD"],
+        },
         time_out=False,
     )
 
-    # (옵션) 수치 불안정 보호막
     nan_or_inf = DoneTerm(
         func=TerminationFns.is_nan_or_inf,
         params={"asset_cfg": SceneEntityCfg(name="Robot")},
         time_out=False,
     )
 
-    # (성공) 안정화 달성 시 조기 종료
     stabilized = DoneTerm(
         func=TerminationFns.is_stabilized,
         params={
             "asset_cfg": SceneEntityCfg(name="Robot"),
-            "pos_tol_m": 0.20,
-            "lin_vel_tol_mps": 0.20,
-            "ang_vel_tol_radps": 0.50,
-            "tilt_tol_rad": math.radians(8.0),
+            "pos_tol_m": CONFIG["STABILIZATION"]["POS_ERR_TOL"],
+            "lin_vel_tol_mps": CONFIG["STABILIZATION"]["LIN_VEL_TOL"],
+            "ang_vel_tol_radps": CONFIG["STABILIZATION"]["ANG_VEL_TOL"],
+            "tilt_tol_rad": math.radians(CONFIG["STABILIZATION"]["TILT_DEGREE_TOL"]),
         },
         time_out=False,
     )

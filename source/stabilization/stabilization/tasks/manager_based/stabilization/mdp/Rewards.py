@@ -5,6 +5,10 @@ from isaaclab.managers import RewardTermCfg as RewTerm
 from isaaclab.managers import SceneEntityCfg
 from isaaclab.utils import configclass
 import stabilization.tasks.manager_based.stabilization.mdp as mdp
+from stabilization.tasks.manager_based.stabilization.config import load_parameters
+
+# Load configuration from YAML file
+CONFIG = load_parameters()
 
 """
 Helper functions
@@ -62,9 +66,10 @@ class RewardFns:
     
     @staticmethod
     def pos_err_w_sigmoid(
-        env: ManagerBasedEnv, 
-        asset_cfg: SceneEntityCfg = SceneEntityCfg(name="Robot"), 
-        norm_half: float = 1.0) -> torch.Tensor:
+        env: ManagerBasedEnv,
+        norm_half: float,
+        asset_cfg: SceneEntityCfg = SceneEntityCfg(name="Robot")
+        ) -> torch.Tensor:
         
         """
         Reward based on the position error in world frame using a sigmoid function.
@@ -79,7 +84,7 @@ class RewardFns:
             The reward is 1 when the position error is zero,
             and 0.5 when the position error equals norm_half.
         """
-        
+
         error_w = mdp.ObservationFns.position_error_w(env, asset_cfg) # (N, 3)
         error_norm = l2_norm(error_w) # (N,)
         k = k_from_half(norm_half)
@@ -88,9 +93,10 @@ class RewardFns:
     
     @staticmethod
     def lin_vel_b_sigmoid(
-        env: ManagerBasedEnv, 
-        asset_cfg: SceneEntityCfg = SceneEntityCfg(name="Robot"), 
-        norm_half: float = 1.0) -> torch.Tensor:
+        env: ManagerBasedEnv,
+        norm_half: float,
+        asset_cfg: SceneEntityCfg = SceneEntityCfg(name="Robot")
+        ) -> torch.Tensor:
         
         """
         Reward based on the linear velocity in body frame using a sigmoid function.
@@ -115,8 +121,9 @@ class RewardFns:
     @staticmethod
     def ang_vel_b_sigmoid(
         env: ManagerBasedEnv, 
-        asset_cfg: SceneEntityCfg = SceneEntityCfg(name="Robot"), 
-        norm_half: float = 1.0) -> torch.Tensor:
+        norm_half: float,
+        asset_cfg: SceneEntityCfg = SceneEntityCfg(name="Robot")
+        ) -> torch.Tensor:
         
         """
         Reward based on the angular velocity in body frame using a sigmoid function.
@@ -141,8 +148,8 @@ class RewardFns:
     @staticmethod
     def orientation_sigmoid(
         env: ManagerBasedEnv, 
-        asset_cfg: SceneEntityCfg = SceneEntityCfg(name="Robot"), 
-        norm_half: float = 0.5
+        norm_half: float,
+        asset_cfg: SceneEntityCfg = SceneEntityCfg(name="Robot")
     ) -> torch.Tensor:
         
         """
@@ -168,25 +175,33 @@ class RewardCfg:
     
     pos_err_w = RewTerm(
         func=RewardFns.pos_err_w_sigmoid,
-        params={"asset_cfg": SceneEntityCfg(name="Robot"), "norm_half": 1.0},
-        weight=1.0,
+        params={
+            "asset_cfg": SceneEntityCfg(name="Robot"), 
+            "norm_half": CONFIG["REWARD"]["POS_ERR_HALF"]},
+        weight=CONFIG["REWARD"]["POS_ERR_WEIGHT"],
     )
     
     lin_vel_b = RewTerm(
         func=RewardFns.lin_vel_b_sigmoid,
-        params={"asset_cfg": SceneEntityCfg(name="Robot"), "norm_half": 1.0},
-        weight=1.0,
+        params={
+            "asset_cfg": SceneEntityCfg(name="Robot"), 
+            "norm_half": CONFIG["REWARD"]["LIN_VEL_HALF"]},
+        weight=CONFIG["REWARD"]["LIN_VEL_WEIGHT"],
     )
     
     ang_vel_b = RewTerm(
         func=RewardFns.ang_vel_b_sigmoid,
-        params={"asset_cfg": SceneEntityCfg(name="Robot"), "norm_half": 1.0},
-        weight=1.0,
+        params={
+            "asset_cfg": SceneEntityCfg(name="Robot"), 
+            "norm_half": CONFIG["REWARD"]["ANG_VEL_HALF"]},
+        weight=CONFIG["REWARD"]["ANG_VEL_WEIGHT"],
     )
     
     orientation = RewTerm(
         func=RewardFns.orientation_sigmoid,
-        params={"asset_cfg": SceneEntityCfg(name="Robot"), "norm_half": 0.5},
-        weight=1.0,
+        params={
+            "asset_cfg": SceneEntityCfg(name="Robot"), 
+            "norm_half": CONFIG["REWARD"]["ORI_ERR_HALF"]},
+        weight=CONFIG["REWARD"]["ORI_ERR_WEIGHT"],
     )
         

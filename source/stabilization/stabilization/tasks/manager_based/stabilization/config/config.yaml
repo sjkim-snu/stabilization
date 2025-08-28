@@ -16,39 +16,68 @@
 # This section includes basic settings for Isaac Lab and the simulation.
 # ─────────────────────────────────────────────────────────────────────────────────────
 
-Launcher:
-  HEADLESS: false           # Whether to run in headless mode
-  DEVICE: "cuda:0"          # Device to run the simulation on
-
-
-
-
+LAUNCHER:
+  HEADLESS: false            # Whether to run in headless mode
+  DEVICE: "cuda:0"           # Device to run the simulation on
+  USE_MANUAL_ACTION: True    # Only for testing. If true, use the action specified below.
+  MANUAL_ACTION: [0.0, 0.0, 0.0, 0.0]
 
 # ─────────────────────────────────────────────────────────────────────────────────────
 # Configuration of the Scene and Environment
 # This section includes settings for the scene and the RL environment.
 # ─────────────────────────────────────────────────────────────────────────────────────
 
-SceneCfg:
+SCENE:
   NUM_ENVS: 10              # Number of parallel environments
   ENV_SPACING: 0.5          # Spacing between environments (m)
   CLONE_IN_FABRIC: true     # If true, entities are cloned in fabric for better performance
   FILTER_COLLISIONS: true   # If true, collisions will not occur between cloned entities
 
-EnvCfg:
+ENV:
   PHYSICS_DT: 0.002         # Physics timestep
   DECIMATION: 4             # Number of physics steps per control step
   EPISODE_LENGTH_S: 20.0    # Length of each episode in seconds
-
-
+  VIEWER: [3.0, 3.0, 2.0]   # Initial camera position in the viewer
 
 
 # ─────────────────────────────────────────────────────────────────────────────────────
-# Configuration of the action space
-# This section includes settings for the action space of the RL agent.
+# Configuration of the Reinforcement Learning
+# This section includes settings for the event, observation, reward, and termination.
 # ─────────────────────────────────────────────────────────────────────────────────────
 
-ActionCfg:
+EVENT:
+  LIN_VEL_MIN: [-5.0, -5.0, -5.0]    # Minimum linear velocity (m/s)
+  LIN_VEL_MAX: [5.0, 5.0, 5.0]       # Maximum linear velocity (m/s)
+  ANG_VEL_MIN: [-3.0, -3.0, -3.0]    # Minimum angular velocity (rad/s)
+  ANG_VEL_MAX: [3.0, 3.0, 3.0]       # Maximum angular velocity (rad/s)
+  TILT_DEGREE_MAX: 45.0              # Maximum tilt angle (degrees)
+  YAW_DEGREE_RANGE: [-180.0, 180.0]  # Range of yaw angle (degrees)
+  OMEGA_NORM_MAX: 3.0                # Maximum angular velocity norm (rad/s)
+  
+OBSERVATION:
+  CONCATENATE_TERMS: true   # If true, concatenate observation terms into a single vector
+  ENABLE_CORRUPTION: false  # If true, add noise to observations
+
+REWARD:
+  POS_ERR_HALF: 1.0         # Position error reward drops to half (m)
+  LIN_VEL_HALF: 1.0         # Linear velocity reward drops to half (m/s)
+  ANG_VEL_HALF: 1.0         # Angular velocity reward drops to half (rad/s)
+  ORI_ERR_HALF: 0.5         # Orientation error reward drops to half (rad)
+  POS_ERR_WEIGHT: 1.0       # Weight for position error reward
+  LIN_VEL_WEIGHT: 0.1       # Weight for linear velocity reward
+  ANG_VEL_WEIGHT: 0.1       # Weight for angular velocity reward
+  ORI_ERR_WEIGHT: 0.5       # Weight for orientation error reward
+
+STABILIZATION:
+  POS_ERR_TOL: 5.0          # Position error threshold for determine stabilization (m)
+  LIN_VEL_TOL: 5.0          # Linear velocity threshold for determine stabilization (m/s)
+  ANG_VEL_TOL: 5.0          # Angular velocity threshold for determine stabilization (rad/s)
+  TILT_DEGREE_TOL: 45.0     # Tilt angle threshold for determine stabilization (degrees)
+
+TERMINATION:
+  FLIP_TILT_DEGREE: 90.0    # Terminate if tilt angle exceeds (degrees)
+  DIST_THRESHOLD: 10.0      # Terminate if distance from spawn exceeds (m)
+  ALTITUDE_THRESHOLD: 0.02  # Terminate if altitude is below (m)
   
 
 
