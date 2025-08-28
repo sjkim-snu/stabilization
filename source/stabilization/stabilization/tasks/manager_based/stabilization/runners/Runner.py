@@ -22,77 +22,6 @@ import stabilization.tasks.manager_based.stabilization.mdp as mdp
 CONFIG = load_parameters()
 
 
-"""
-Helper functions
-"""
-
-def _steps_and_limit(env):
-    """Get current steps and step-limit for predicting time_out at this step."""
-    if hasattr(env, "episode_length_buf"):
-        steps_elapsed = env.episode_length_buf.view(-1)
-    elif hasattr(env, "progress_buf"):
-        steps_elapsed = env.progress_buf.view(-1)
-    else:
-        steps_elapsed = env.episode_step_count.view(-1)
-
-    try:
-        steps_limit = int(env.max_episode_length)
-    except Exception:
-        steps_limit = int(float(getattr(env.cfg, "episode_length_s", 0.0)) / env.step_dt + 0.5)
-    return steps_elapsed, steps_limit
-
-
-def _collect_done_reasons_now(env, env_idx: int = 0):
-    """Collect possible done reasons from current state."""
-    f = mdp.TerminationFns
-    reasons = []
-    try:
-        if f.is_flipped(env)[env_idx]:
-            reasons.append("flipped")
-    except Exception:
-        pass
-    try:
-        if f.is_far_from_spawn(env)[env_idx]:
-            reasons.append("far_from_spawn")
-    except Exception:
-        pass
-    try:
-        if f.is_crashed(env)[env_idx]:
-            reasons.append("crashed")
-    except Exception:
-        pass
-    try:
-        if f.is_nan_or_inf(env)[env_idx]:
-            reasons.append("nan_or_inf")
-    except Exception:
-        pass
-    try:
-        if f.is_stabilized(env)[env_idx]:
-            reasons.append("stabilized")
-    except Exception:
-        pass
-    try:
-        if il_time_out(env)[env_idx]:
-            reasons.append("time_out")
-    except Exception:
-        pass
-    return reasons
-
-
-def _collect_done_reasons_with_predict(env, env_idx: int = 0):
-    """Pre-capture reasons and also predict step-edge time_out (steps+1)."""
-    reasons = _collect_done_reasons_now(env, env_idx)
-    if not reasons:
-        try:
-            steps_elapsed, steps_limit = _steps_and_limit(env)
-            # 스텝 호출 직후에 time_out이 뜨는 경계: 지금 스텝+1로 도달하는지 예측
-            if int(steps_elapsed[env_idx].item()) + 1 >= steps_limit:
-                reasons.append("time_out")
-        except Exception:
-            pass
-    return reasons
-
-
 @configclass
 class ActionsCfg:
     base_controller: mdp.BaseControllerCfg = mdp.BaseControllerCfg(
@@ -147,9 +76,7 @@ def main():
         with torch.inference_mode():
             if step % 600 == 0:
                 env.reset()
-
-            # pre-capture reasons with step-edge time_out prediction
-            pre_reasons_env0 = _collect_done_reasons_with_predict(env, env_idx=0)
+                print(f"[INFO] Environment reset at step {step}")
 
             if use_manual:
                 actions = manual_action_tensor.unsqueeze(0).expand_as(env.action_manager.action)
@@ -167,12 +94,19 @@ def main():
                 rpy0 = (r[0].item(), p[0].item(), y[0].item())
                 mode = "MANUAL" if use_manual else "ZERO"
 
-                done_str = ""
                 term0 = bool(terminated[0].item())
                 trunc0 = bool(truncated[0].item())
+
+                tm = env.termination_manager
+                names = list(tm.active_terms)
+                fired = [n for n in names if bool(tm.get_term(n)[0].item())]
+                timeout0 = bool(tm.time_outs[0].item()) if hasattr(tm, "time_outs") else False
+                reasons = fired + (["time_out"] if timeout0 else [])
+                reason_txt = ",".join(reasons) if reasons else "unknown"
+
+                done_str = ""
                 if term0 or trunc0:
                     label = "TERM" if term0 else "TRUNC"
-                    reason_txt = ",".join(pre_reasons_env0) if pre_reasons_env0 else "unknown"
                     done_str = f"  done={label}({reason_txt})"
 
                 print(
@@ -180,6 +114,9 @@ def main():
                     f"rpy=({rpy0[0]:+.2f}, {rpy0[1]:+.2f}, {rpy0[2]:+.2f})  "
                     f"rew={rew[0].item():+.4f}{done_str}"
                 )
+
+                if term0 or trunc0:
+                    print(f"[REASON] fired={','.join(fired) if fired else 'none'} timeout={timeout0}")
 
             step += 1
 

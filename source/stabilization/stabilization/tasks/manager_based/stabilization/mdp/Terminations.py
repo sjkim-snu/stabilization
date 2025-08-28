@@ -88,9 +88,10 @@ class TerminationFns:
         """
         roll  = mdp.ObservationFns.roll_current(env, asset_cfg).squeeze(-1)   # (N,)
         pitch = mdp.ObservationFns.pitch_current(env, asset_cfg).squeeze(-1)  # (N,)
-        roll_within = torch.abs(roll)   <= tilt_threshold_rad  # (N,)
-        pitch_within = torch.abs(pitch) <= tilt_threshold_rad  # (N,)
-        return (roll_within & pitch_within)                    # (N,)
+        roll_flipped = torch.abs(roll)   >= tilt_threshold_rad  # (N,)
+        pitch_flipped = torch.abs(pitch) >= tilt_threshold_rad  # (N,)
+        flipped = roll_flipped | pitch_flipped
+        return flipped                   # (N,)
 
 
     @staticmethod
@@ -113,7 +114,8 @@ class TerminationFns:
         
         pos_err_w = mdp.ObservationFns.position_error_w(env, asset_cfg)  # (N, 3)
         dist = torch.linalg.norm(pos_err_w, dim=-1)                      # (N,)
-        return (dist > dist_threshold_m)                                 # (N,)
+        far = dist >= dist_threshold_m                        # (N,)
+        return far
 
 
     @staticmethod
@@ -130,8 +132,8 @@ class TerminationFns:
         asset = env.scene[asset_cfg.name]
         position_w = asset.data.root_pos_w            # (N, 3)
         z_current = torch.abs(position_w[:, 2])       # (N,)
-        z_within = z_current <= z_min_m               # (N,)
-        return (z_within)                             # (N,)
+        crashed = z_current <= z_min_m               # (N,)
+        return crashed                        # (N,)
 
 
     @staticmethod
@@ -191,8 +193,8 @@ class TerminationFns:
 class TerminationsCfg:
     
     """
-    Manager 등록용 종료 조건 모음.
-    모든 판정은 ObservationFns를 통해 산출된 값(=관측)을 기준으로 수행됩니다.
+    Configuration class for various termination conditions.
+    Each termination condition is represented as a DoneTerm instance.
     """
 
     flipped = DoneTerm(

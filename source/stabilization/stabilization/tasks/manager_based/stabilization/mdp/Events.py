@@ -42,30 +42,35 @@ class EventFns:
         """
         
         asset = env.scene[asset_cfg.name]
-        N = env.num_envs
         device = asset.device
         
-        # Fixed initial position
-        pos_w = mdp.ObservationFns.spawn_position_w(env, asset_cfg.name).to(device)  # (N, 3)
+        if env_ids is None:
+            env_ids = torch.arange(env.num_envs, device=device)
+        else:
+            env_ids = env_ids.to(device)
+        
+        M = env_ids.shape[0]
+        pos_all = mdp.ObservationFns.spawn_position_w(env, asset_cfg.name).to(device)  # (N, 3)
+        pos_w = pos_all[env_ids]  # (M, 3)
         
         # Randomize orientation
-        roll = math_utils.sample_uniform(-max_tilt_rad, max_tilt_rad, N, device=device) # (N,)
-        pitch = math_utils.sample_uniform(-max_tilt_rad, max_tilt_rad, N, device=device) # (N,)
-        yaw = math_utils.sample_uniform(yaw_range[0], yaw_range[1], N, device=device) # (N,)
-        quat_w = math_utils.quat_from_euler_xyz(roll, pitch, yaw) # (N, 4)
-        
+        roll = math_utils.sample_uniform(-max_tilt_rad, max_tilt_rad, M, device=device) # (M,)
+        pitch = math_utils.sample_uniform(-max_tilt_rad, max_tilt_rad, M, device=device) # (M,)
+        yaw = math_utils.sample_uniform(yaw_range[0], yaw_range[1], M, device=device) # (M,)
+        quat_w = math_utils.quat_from_euler_xyz(roll, pitch, yaw) # (M, 4)
+
         # Randomize linear velocity
         lin_vel_min = torch.tensor(lin_vel_range[0], dtype=torch.float32, device=device)  # (3,)
         lin_vel_max = torch.tensor(lin_vel_range[1], dtype=torch.float32, device=device)  # (3,)
-        lin_vel_w = torch.rand((N, 3), dtype=torch.float32, device=device) * (lin_vel_max - lin_vel_min) + lin_vel_min  # (N, 3)
+        lin_vel_w = torch.rand((M, 3), dtype=torch.float32, device=device) * (lin_vel_max - lin_vel_min) + lin_vel_min  # (N, 3)
 
         # Randomize angular velocity
         ang_vel_min = torch.tensor(ang_vel_range[0], dtype=torch.float32, device=device)  # (3,)
         ang_vel_max = torch.tensor(ang_vel_range[1], dtype=torch.float32, device=device)  # (3,)
-        ang_vel_w = torch.rand((N, 3), dtype=torch.float32, device=device) * (ang_vel_max - ang_vel_min) + ang_vel_min  # (N, 3)
+        ang_vel_w = torch.rand((M, 3), dtype=torch.float32, device=device) * (ang_vel_max - ang_vel_min) + ang_vel_min  # (N, 3)
 
         # Construct root state
-        root_state = torch.zeros((N, 13), dtype=torch.float32, device=device)  # (N, 13)
+        root_state = torch.zeros((M, 13), dtype=torch.float32, device=device)  # (M, 13)
         root_state[:, 0:3] = pos_w
         root_state[:, 3:7] = quat_w
         root_state[:, 7:10] = lin_vel_w
@@ -73,7 +78,7 @@ class EventFns:
         
         # Apply to asset
         # https://isaac-sim.github.io/IsaacLab/main/source/api/lab/isaaclab.assets.html#isaaclab.assets.RigidObject.write_root_link_state_to_sim
-        asset.write_root_link_state_to_sim(root_state)
+        asset.write_root_link_state_to_sim(root_state, env_ids=env_ids)
         
 @configclass
 class EventCfg:
