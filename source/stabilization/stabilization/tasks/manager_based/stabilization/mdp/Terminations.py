@@ -131,9 +131,9 @@ class TerminationFns:
         
         asset = env.scene[asset_cfg.name]
         position_w = asset.data.root_pos_w            # (N, 3)
-        z_current = torch.abs(position_w[:, 2])       # (N,)
-        crashed = z_current <= z_min_m               # (N,)
-        return crashed                        # (N,)
+        z_current = position_w[:, 2]                  # (N,)
+        crashed = z_current <= z_min_m                # (N,)
+        return crashed   # (N,)
 
 
     @staticmethod

@@ -85,7 +85,7 @@ def main():
             obs, rew, terminated, truncated, info = env.step(actions)
 
             # Logging
-            if step % 60 == 0:
+            if step % 125 == 0:
                 pos_err = mdp.ObservationFns.position_error_w(env, asset)[0]        # (3,)
                 lin_b   = mdp.ObservationFns.lin_vel_body(env, asset)[0]            # (3,)
                 ang_b   = mdp.ObservationFns.ang_vel_body(env, asset)[0]            # (3,)
