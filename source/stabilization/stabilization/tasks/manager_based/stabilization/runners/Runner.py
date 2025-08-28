@@ -11,7 +11,6 @@ import torch
 from isaaclab.envs import ManagerBasedRLEnv, ManagerBasedRLEnvCfg
 from isaaclab.utils import configclass
 from isaaclab.managers import SceneEntityCfg
-from isaaclab.envs.mdp.terminations import time_out as il_time_out
 from stabilization.tasks.manager_based.stabilization.config import load_parameters
 
 # Project modules
@@ -20,7 +19,6 @@ import stabilization.tasks.manager_based.stabilization.mdp as mdp
 
 # Load configuration from YAML file
 CONFIG = load_parameters()
-
 
 @configclass
 class ActionsCfg:
@@ -62,8 +60,8 @@ def main():
     env_cfg.sim.device = CONFIG["LAUNCHER"]["DEVICE"]
     env_cfg.sim.headless = CONFIG["LAUNCHER"]["HEADLESS"]
     env = ManagerBasedRLEnv(cfg=env_cfg)
-    use_manual = CONFIG["LAUNCHER"]["USE_MANUAL_ACTION"]
 
+    use_manual = CONFIG["LAUNCHER"]["USE_MANUAL_ACTION"]
     if use_manual:
         manual_action_tensor = torch.tensor(
             CONFIG["LAUNCHER"]["MANUAL_ACTION"],
@@ -71,12 +69,13 @@ def main():
             dtype=env.action_manager.action.dtype,
         ).clamp(-1.0, 1.0)
 
+    asset = SceneEntityCfg(name="Robot")
     step = 0
+
     while simulation_app.is_running():
         with torch.inference_mode():
-            if step % 600 == 0:
+            if step == 0:
                 env.reset()
-                print(f"[INFO] Environment reset at step {step}")
 
             if use_manual:
                 actions = manual_action_tensor.unsqueeze(0).expand_as(env.action_manager.action)
@@ -85,38 +84,22 @@ def main():
 
             obs, rew, terminated, truncated, info = env.step(actions)
 
+            # Logging
             if step % 60 == 0:
-                robot = env.scene["Robot"]
-                root_state = robot.data.root_state_w
-                p0 = root_state[0, :3]
-                quat_w = robot.data.root_quat_w
-                r, p, y = mdp.ObservationFns.quaternion_to_orientation(quat_w)
-                rpy0 = (r[0].item(), p[0].item(), y[0].item())
-                mode = "MANUAL" if use_manual else "ZERO"
-
-                term0 = bool(terminated[0].item())
-                trunc0 = bool(truncated[0].item())
-
-                tm = env.termination_manager
-                names = list(tm.active_terms)
-                fired = [n for n in names if bool(tm.get_term(n)[0].item())]
-                timeout0 = bool(tm.time_outs[0].item()) if hasattr(tm, "time_outs") else False
-                reasons = fired + (["time_out"] if timeout0 else [])
-                reason_txt = ",".join(reasons) if reasons else "unknown"
-
-                done_str = ""
-                if term0 or trunc0:
-                    label = "TERM" if term0 else "TRUNC"
-                    done_str = f"  done={label}({reason_txt})"
+                pos_err = mdp.ObservationFns.position_error_w(env, asset)[0]        # (3,)
+                lin_b   = mdp.ObservationFns.lin_vel_body(env, asset)[0]            # (3,)
+                ang_b   = mdp.ObservationFns.ang_vel_body(env, asset)[0]            # (3,)
+                roll    = mdp.ObservationFns.roll_current(env, asset)[0].item()     # scalar
+                pitch   = mdp.ObservationFns.pitch_current(env, asset)[0].item()    # scalar
+                yaw     = mdp.ObservationFns.yaw_current(env, asset)[0].item()      # scalar
 
                 print(
-                    f"[{mode}] [env0] pos=({p0[0]:+.3f}, {p0[1]:+.3f}, {p0[2]:+.3f})  "
-                    f"rpy=({rpy0[0]:+.2f}, {rpy0[1]:+.2f}, {rpy0[2]:+.2f})  "
-                    f"rew={rew[0].item():+.4f}{done_str}"
+                    f"[env0] pos_err_w=({pos_err[0]:+.3f},{pos_err[1]:+.3f},{pos_err[2]:+.3f})  "
+                    f"lin_vel_b=({lin_b[0]:+.3f},{lin_b[1]:+.3f},{lin_b[2]:+.3f})  "
+                    f"ang_vel_b=({ang_b[0]:+.3f},{ang_b[1]:+.3f},{ang_b[2]:+.3f})  "
+                    f"orientation=({roll:+.2f},{pitch:+.2f},{yaw:+.2f})  "
+                    f"reward={rew[0].item():+.4f}"
                 )
-
-                if term0 or trunc0:
-                    print(f"[REASON] fired={','.join(fired) if fired else 'none'} timeout={timeout0}")
 
             step += 1
 
