@@ -104,7 +104,15 @@ def main():
             # define done signal and log as csv files
             dones = (terminated | truncated)
             rew_terms_step = info.get("rew_terms", None) if isinstance(info, dict) else None
-            csv_logger.log_step(rewards=rew, dones=dones, rew_terms_step=rew_terms_step, term_mgr=env.termination_manager)
+            
+            # for logging, convert actions to tensor on the correct device
+            csv_logger.log_step(
+                rewards=rew,
+                dones=dones,
+                rew_terms_step=info.get("rew_terms", None),
+                term_mgr=getattr(env, "termination_manager", None),
+                actions=actions, 
+            )
 
             # for debugging, print every 125 steps (1 sec)
             if step % 125 == 0:

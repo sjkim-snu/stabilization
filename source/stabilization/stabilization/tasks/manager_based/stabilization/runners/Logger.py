@@ -17,7 +17,7 @@ class CSVLoggerCfg:
     log_dir: Optional[str] = None
     filename: Optional[str] = None
     flush_every_rows: int = 100
-    sample_rate: float = 1.0
+    sample_rate: float = 1.0               # if 1.0, all episodes are logged
     device: Optional[str] = None           # "cuda:0" or "cpu"
     policy_dt_s: Optional[float] = None    # physics_dt * decimation
 
@@ -31,7 +31,6 @@ class EpisodeCSVLogger:
             num_envs (int): Number of entities.
             cfg (CSVLoggerCfg): Configuration for the logger.
         """
-            
         self.num_envs = num_envs
         self.cfg = cfg
 
@@ -45,26 +44,31 @@ class EpisodeCSVLogger:
             stamp = datetime.now(_KST).strftime("%Y%m%d_%H%M%S") if _KST else datetime.now().strftime("%Y%m%d_%H%M%S")
             self.cfg.filename = f"{stamp}.csv"
 
-        # 
+        # Set file path and name
         self.filepath = str((Path(self.cfg.log_dir) / self.cfg.filename).resolve())
-
+        
+        # If device is specified, use it; otherwise, first tensor's device will be used
         self._torch_device: Optional[torch.device] = torch.device(self.cfg.device) if self.cfg.device else None
+        
+        # Initialize internal state
         self._core_allocated = False
-
         self._ep_len: Optional[torch.Tensor] = None
         self._ep_idx: Optional[torch.Tensor] = None
-        self._total_sum: Optional[torch.Tensor] = None
-        self._total_sumsq: Optional[torch.Tensor] = None
 
+        # Reward term accumulators (per-env)
         self._term_sum: Dict[str, torch.Tensor] = {}
-        self._term_sumsq: Dict[str, torch.Tensor] = {}
         self._term_names_sorted: Optional[List[str]] = None
 
+        # Action logging: episode-wise mean of action components (fixed 4 dims as requested)
+        self._act_sum: Optional[torch.Tensor] = None  # shape: [num_envs, 4]
+
+        # Open CSV file for writing
         self._csv_file = open(self.filepath, "w", newline="", encoding="utf-8")
         self._csv_writer: Optional[csv.DictWriter] = None
         self._header_written = False
         self._rows_since_flush = 0
-
+    
+    # Ensure tensors are allocated on the correct device
     def _ensure_device_and_alloc(self, ref_tensor: torch.Tensor):
         if self._torch_device is None:
             self._torch_device = ref_tensor.device
@@ -72,24 +76,16 @@ class EpisodeCSVLogger:
             dev = self._torch_device
             self._ep_len = torch.zeros(self.num_envs, dtype=torch.long, device=dev)
             self._ep_idx = torch.zeros(self.num_envs, dtype=torch.long, device=dev)
-            self._total_sum = torch.zeros(self.num_envs, dtype=torch.float32, device=dev)
-            self._total_sumsq = torch.zeros(self.num_envs, dtype=torch.float32, device=dev)
+            # action accumulators (4-dim mean vector)
+            self._act_sum = torch.zeros(self.num_envs, 4, dtype=torch.float32, device=dev)
             self._core_allocated = True
 
+    # Ensure reward terms are initialized
     def _ensure_terms(self, term_names: List[str]):
         dev = self._torch_device if self._torch_device is not None else torch.device("cpu")
         for name in term_names:
             if name not in self._term_sum:
                 self._term_sum[name] = torch.zeros(self.num_envs, dtype=torch.float32, device=dev)
-                self._term_sumsq[name] = torch.zeros(self.num_envs, dtype=torch.float32, device=dev)
-
-    @staticmethod
-    def _mean_var(s: float, s2: float, n: int):
-        if n <= 0:
-            return 0.0, 0.0
-        mean = s / n
-        var = s2 / n - mean * mean
-        return mean, max(var, 0.0)
 
     def _build_writer_if_needed(self):
         if self._csv_writer is not None:
@@ -101,13 +97,16 @@ class EpisodeCSVLogger:
             "timestamp_kst",
             "env_id",
             "episode_idx",
-            "episode_length",          # steps
-            "episode_length_s",        # seconds (policy_dt_s가 설정된 경우)
+            "episode_length",          # float steps
+            "episode_length_s",        # float seconds (policy_dt_s가 설정된 경우)
             "done_reason",
         ]
+        # reward terms: sum only
         for t in self._term_names_sorted:
-            header += [f"rew_{t}_sum", f"rew_{t}_mean", f"rew_{t}_var"]
-        header += ["reward_total_sum", "reward_total_mean", "reward_total_var"]
+            header += [f"rew_{t}_sum"]
+
+        # action mean (episode-wise, 4-dim)
+        header += [f"act_mean_{k}" for k in range(4)]
 
         self._csv_writer = csv.DictWriter(self._csv_file, fieldnames=header)
         self._csv_writer.writeheader()
@@ -123,6 +122,7 @@ class EpisodeCSVLogger:
         dones: torch.Tensor,
         rew_terms_step: Optional[Dict[str, torch.Tensor]] = None,
         term_mgr=None,
+        actions: Optional[torch.Tensor] = None,  # [N, A], A can be >=,<,= 4
     ):
         N = rewards.shape[0]
         if N != self.num_envs:
@@ -130,31 +130,45 @@ class EpisodeCSVLogger:
 
         self._ensure_device_and_alloc(rewards)
 
+        # episode step accumulations
         self._ep_len += 1
-        self._total_sum += rewards
-        self._total_sumsq += rewards * rewards
 
+        # reward terms: accumulate only sums
         if rew_terms_step:
             self._ensure_terms(list(rew_terms_step.keys()))
             for name, val in rew_terms_step.items():
                 self._term_sum[name] += val
-                self._term_sumsq[name] += val * val
 
+        # actions: accumulate for episode-wise mean (fixed 4 dims)
+        if actions is not None:
+            A = actions.shape[-1]
+            # add first min(A,4) components
+            use = min(A, 4)
+            if use > 0:
+                self._act_sum[:, :use] += actions[:, :use]
+            # if action dim < 4, the remaining components stay accumulated as 0
+
+        # write rows for done envs
         done_ids = torch.nonzero(dones).squeeze(-1)
         if done_ids.numel() == 0:
             return
 
+        # build header lazily when we know term names
         if not self._header_written:
             self._build_writer_if_needed()
 
+        # if sample_rate < 1.0, randomly skip some episodes
         for i in done_ids.tolist():
             if self.cfg.sample_rate < 1.0 and random.random() > self.cfg.sample_rate:
                 self._reset_one_env(i)
                 continue
 
             ep_len = int(self._ep_len[i].item())
-            ep_len_s = f"{(ep_len * self.cfg.policy_dt_s):.6f}" if self.cfg.policy_dt_s is not None else ""
+            # as requested: both fields are float strings
+            ep_len_f = f"{float(ep_len):.6f}"
+            ep_len_s = f"{(float(ep_len) * self.cfg.policy_dt_s):.6f}" if self.cfg.policy_dt_s is not None else ""
 
+            # determine done reason
             reason = "unknown"
             if term_mgr is not None:
                 try:
@@ -172,28 +186,27 @@ class EpisodeCSVLogger:
                 "timestamp_kst": self._ts_kst(),
                 "env_id": i,
                 "episode_idx": int(self._ep_idx[i].item()),
-                "episode_length": ep_len,
+                "episode_length": ep_len_f,
                 "episode_length_s": ep_len_s,
                 "done_reason": reason,
             }
 
+            # reward term fields (sum only)
             if self._term_names_sorted is None:
                 self._term_names_sorted = sorted(self._term_sum.keys())
             for t in self._term_names_sorted:
-                s  = float(self._term_sum[t][i].item())
-                s2 = float(self._term_sumsq[t][i].item())
-                m, v = self._mean_var(s, s2, ep_len)
-                row[f"rew_{t}_sum"]  = f"{s:.6f}"
-                row[f"rew_{t}_mean"] = f"{m:.6f}"
-                row[f"rew_{t}_var"]  = f"{v:.6f}"
+                s = float(self._term_sum[t][i].item())
+                row[f"rew_{t}_sum"] = f"{s:.6f}"
 
-            s_tot  = float(self._total_sum[i].item())
-            s2_tot = float(self._total_sumsq[i].item())
-            m_tot, v_tot = self._mean_var(s_tot, s2_tot, ep_len)
-            row["reward_total_sum"]  = f"{s_tot:.6f}"
-            row["reward_total_mean"] = f"{m_tot:.6f}"
-            row["reward_total_var"]  = f"{v_tot:.6f}"
+            # action mean across steps (4 components as float)
+            if self._act_sum is not None and ep_len > 0:
+                means = (self._act_sum[i] / float(ep_len)).detach().to("cpu").tolist()
+                # ensure 4 outputs
+                means = (means + [0.0, 0.0, 0.0, 0.0])[:4]
+                for k in range(4):
+                    row[f"act_mean_{k}"] = f"{float(means[k]):.6f}"
 
+            # write row
             self._csv_writer.writerow(row)
             self._rows_since_flush += 1
             if self._rows_since_flush >= self.cfg.flush_every_rows:
@@ -204,16 +217,17 @@ class EpisodeCSVLogger:
                     pass
                 self._rows_since_flush = 0
 
+            # reset episode accumulators for this env
             self._reset_one_env(i)
 
     def _reset_one_env(self, i: int):
+        # increase episode index and clear accumulators
         self._ep_idx[i] += 1
         self._ep_len[i] = 0
-        self._total_sum[i] = 0.0
-        self._total_sumsq[i] = 0.0
         for t in self._term_sum.keys():
             self._term_sum[t][i] = 0.0
-            self._term_sumsq[t][i] = 0.0
+        if self._act_sum is not None:
+            self._act_sum[i, :] = 0.0
 
     def close(self):
         try:
