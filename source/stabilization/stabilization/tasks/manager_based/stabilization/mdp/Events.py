@@ -78,6 +78,7 @@ class EventFns:
         
         # Apply to asset
         # https://isaac-sim.github.io/IsaacLab/main/source/api/lab/isaaclab.assets.html#isaaclab.assets.RigidObject.write_root_link_state_to_sim
+        
         asset.write_root_link_state_to_sim(root_state, env_ids=env_ids)
         
 @configclass

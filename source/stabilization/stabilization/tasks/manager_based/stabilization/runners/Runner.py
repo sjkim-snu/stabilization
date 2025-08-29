@@ -55,11 +55,14 @@ class StabilizationEnvCfg(ManagerBasedRLEnvCfg):
 
 
 def main():
+    
+    # define environment
     env_cfg = StabilizationEnvCfg()
     env_cfg.sim.device = CONFIG["LAUNCHER"]["DEVICE"]
     env_cfg.sim.headless = CONFIG["LAUNCHER"]["HEADLESS"]
     env = ManagerBasedRLEnv(cfg=env_cfg)
 
+    # activate logger
     csv_logger = Logger.EpisodeCSVLogger(
     num_envs=env.num_envs,
     cfg=Logger.CSVLoggerCfg(
@@ -68,7 +71,9 @@ def main():
         ),
     )
 
+    # decide whether to use manual action input
     use_manual = CONFIG["LAUNCHER"]["USE_MANUAL_ACTION"]
+    
     if use_manual:
         manual_action_tensor = torch.tensor(
             CONFIG["LAUNCHER"]["MANUAL_ACTION"],
@@ -76,25 +81,32 @@ def main():
             dtype=env.action_manager.action.dtype,
         ).clamp(-1.0, 1.0)
 
+    # main loop
     asset = SceneEntityCfg(name="Robot")
     step = 0
 
     while simulation_app.is_running():
         with torch.inference_mode():
+            
+            # initialize simulation
             if step == 0:
                 env.reset()
 
+            # if manual action is enabled, use it; otherwise, use zero action (TODO)
             if use_manual:
                 actions = manual_action_tensor.unsqueeze(0).expand_as(env.action_manager.action)
             else:
                 actions = torch.zeros_like(env.action_manager.action)
 
+            # step simulation
             obs, rew, terminated, truncated, info = env.step(actions)
 
+            # define done signal and log as csv files
             dones = (terminated | truncated)
             rew_terms_step = info.get("rew_terms", None) if isinstance(info, dict) else None
             csv_logger.log_step(rewards=rew, dones=dones, rew_terms_step=rew_terms_step, term_mgr=env.termination_manager)
 
+            # for debugging, print every 125 steps (1 sec)
             if step % 125 == 0:
                 pos_err = mdp.ObservationFns.position_error_w(env, asset)[0]
                 lin_b   = mdp.ObservationFns.lin_vel_body(env, asset)[0]
@@ -115,7 +127,6 @@ def main():
 
     csv_logger.close()
     env.close()
-
 
 if __name__ == "__main__":
     main()

@@ -10,6 +10,10 @@ from stabilization.tasks.manager_based.stabilization.config import load_paramete
 # Load configuration from YAML file
 CONFIG = load_parameters()
 
+"""
+Helper functions
+"""
+
 def _push_rew_term(env, name: str, value: torch.Tensor):
     try:
         d = env.extras.get("rew_terms", {})
@@ -17,10 +21,6 @@ def _push_rew_term(env, name: str, value: torch.Tensor):
         env.extras["rew_terms"] = d
     except Exception:
         pass
-
-"""
-Helper functions
-"""
 
 def l2_norm(tensor: torch.Tensor) -> torch.Tensor:
     
@@ -160,15 +160,14 @@ class RewardFns:
     ) -> torch.Tensor:
         
         """
-        Reward based on the orientation (roll, pitch, yaw) using a sigmoid function.
+        Reward based on the orientation (roll, pitch) using a sigmoid function.
         Returns (N,) float tensor.
         """
         
         roll  = mdp.ObservationFns.roll_current(env, asset_cfg).reshape(-1, 1)   # (N,1)
         pitch = mdp.ObservationFns.pitch_current(env, asset_cfg).reshape(-1, 1)  # (N,1)
-        yaw   = mdp.ObservationFns.yaw_current(env, asset_cfg).reshape(-1, 1)    # (N,1)
 
-        orientation = torch.cat([roll, pitch, yaw], dim=1)  # (N, 3)
+        orientation = torch.cat([roll, pitch], dim=1)       # (N, 2)
         orientation_norm = l2_norm(orientation)             # (N,)
         k = k_from_half(norm_half)
         orientation_reward = sigmoid(orientation_norm, k)   # (N,)

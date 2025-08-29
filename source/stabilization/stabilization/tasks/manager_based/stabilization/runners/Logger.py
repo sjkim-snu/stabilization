@@ -5,6 +5,7 @@ from datetime import datetime
 from pathlib import Path
 import csv, os, torch, random
 
+# use KST timezone if available
 try:
     from zoneinfo import ZoneInfo
     _KST = ZoneInfo("Asia/Seoul")
@@ -21,18 +22,30 @@ class CSVLoggerCfg:
     policy_dt_s: Optional[float] = None    # physics_dt * decimation
 
 class EpisodeCSVLogger:
+    
     def __init__(self, num_envs: int, cfg: CSVLoggerCfg = CSVLoggerCfg()):
+        
+        """
+        Initialize the CSV logger for episode data.
+        Args:
+            num_envs (int): Number of entities.
+            cfg (CSVLoggerCfg): Configuration for the logger.
+        """
+            
         self.num_envs = num_envs
         self.cfg = cfg
 
+        # Create log directory if it doesn't exist
         if self.cfg.log_dir is None:
             self.cfg.log_dir = str((Path(__file__).resolve().parents[1] / "log").resolve())
         Path(self.cfg.log_dir).mkdir(parents=True, exist_ok=True)
 
+        # Generate filename with timestamp if not provided
         if self.cfg.filename is None:
             stamp = datetime.now(_KST).strftime("%Y%m%d_%H%M%S") if _KST else datetime.now().strftime("%Y%m%d_%H%M%S")
             self.cfg.filename = f"{stamp}.csv"
 
+        # 
         self.filepath = str((Path(self.cfg.log_dir) / self.cfg.filename).resolve())
 
         self._torch_device: Optional[torch.device] = torch.device(self.cfg.device) if self.cfg.device else None

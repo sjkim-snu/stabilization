@@ -86,6 +86,7 @@ class TerminationFns:
         Returns:
             Tensor (N,) representing whether the quadrotor has flipped (True if flipped)
         """
+        
         roll  = mdp.ObservationFns.roll_current(env, asset_cfg).squeeze(-1)   # (N,)
         pitch = mdp.ObservationFns.pitch_current(env, asset_cfg).squeeze(-1)  # (N,)
         roll_flipped = torch.abs(roll)   >= tilt_threshold_rad  # (N,)
