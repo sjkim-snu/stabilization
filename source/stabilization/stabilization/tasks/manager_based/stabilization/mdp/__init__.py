@@ -6,7 +6,8 @@
 """This sub-module contains the functions that are specific to the environment."""
 
 from isaaclab.envs.mdp import *
-from .Actions import *
+from .E2E_actions import *
+# from .Cascaded_actions import *
 from .Rewards import *
 from .Observations import *
 from .Events import *
