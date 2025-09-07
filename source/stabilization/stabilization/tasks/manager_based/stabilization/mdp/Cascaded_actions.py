@@ -5,13 +5,252 @@ from dataclasses import dataclass
 from isaaclab.utils import configclass
 from abc import abstractmethod
 
+import stabilization.tasks.manager_based.stabilization.mdp as mdp
 import stabilization.tasks.manager_based.stabilization.envs as envs
 import isaaclab.envs as env
 import torch
 import math
+from stabilization.tasks.manager_based.stabilization.config import load_parameters
 
-@configclass
-class BaseControllerCfg(ActionTermCfg):
-    asset_name: str = "Robot"
+# Load configuration from YAML file
+CONFIG = load_parameters()
+
+class ActionFns:
+    
+    @staticmethod
+    def mix_rate_thrust_to_rotor_forces(
+        required_accel: torch.Tensor,    # (N, 1)
+        momentum_sp_b: torch.Tensor,     # (N, 3)
+        rotor_xy: torch.Tensor,          # (4, 2)
+        rotor_dirs: torch.Tensor,        # (4,)
+        k_f_rpm2: torch.Tensor,          # (1,)
+        k_m_rpm2: torch.Tensor,          # (1,)
+        mass: torch.Tensor,              # (1,)
+        ) -> torch.Tensor:
+        
+        # Handle device and dtype
+        device = required_accel.device
+        dtype = required_accel.dtype
+        N = required_accel.shape[0]
+        
+        # Set tensors
+        momentum_sp_b = momentum_sp_b.to(device=device, dtype=dtype) # (N, 3)
+        x = rotor_xy[:, 0].to(device=device, dtype=dtype)            # (4,)
+        y = rotor_xy[:, 1].to(device=device, dtype=dtype)            # (4,)
+        rotor_dirs = rotor_dirs.to(device=device, dtype=dtype)       # (4,)
+        k_m_rpm2 = k_m_rpm2.to(device=device, dtype=dtype)           # (1,)
+        k_f_rpm2 = k_f_rpm2.to(device=device, dtype=dtype)           # (1,)
+        mass = mass.to(device=device, dtype=dtype)                   # (1,)
+        c = rotor_dirs * (k_m_rpm2 / k_f_rpm2)                       # (4,)
+
+        # Mixing matrix
+        M = torch.stack([torch.ones_like(x), y, -x, c], dim=0) # (4, 4)
+        Minv = torch.inverse(M)                                # (4, 4)
+        
+        # Desired thrust, torque vector
+        T = torch.zeros((N, 4), device=device, dtype=dtype) # (N, 4)
+        total_thrust = required_accel.squeeze(-1) * mass    # (N, 1)
+        T[:, 0]   = total_thrust                            # (N,)
+        T[:, 1:4] = momentum_sp_b                           # (N,)
+
+        # Compute rotor forces
+        rotor_forces = torch.matmul(T, Minv)
+        rotor_forces = torch.clamp(rotor_forces, min=0.0) # (N, 4)
+        
+        return rotor_forces
+    
+    @staticmethod
+    def thrust_to_rpm(
+        rotor_forces: torch.Tensor, # (N, 4)
+        w_min_rpm: torch.Tensor,    # (1,)
+        w_max_rpm: torch.Tensor,    # (1,)
+        k_f: torch.Tensor,          # (1,)
+        ) -> torch.Tensor:
+
+        # Handle device, dtype, and dimensions
+        device = rotor_forces.device
+        dtype = rotor_forces.dtype
+        N = rotor_forces.shape[0]
+        
+        # Set tensors
+        w_min_rpm = w_min_rpm.view(1, 1).expand(N, 1).to(device=device, dtype=dtype) # (N, 1)
+        w_max_rpm = w_max_rpm.view(1, 1).expand(N, 1).to(device=device, dtype=dtype) # (N, 1)
+        k_f = k_f.view(1, 1).expand(N, 1).to(device=device, dtype=dtype)             # (N, 1)
+
+        # Convert RPM to rad/s
+        w_min = w_min_rpm * (2 * math.pi / 60) # (N, 1)
+        w_max = w_max_rpm * (2 * math.pi / 60) # (N, 1)
+        
+        # Compute rotor speeds
+        w = torch.sqrt(rotor_forces / k_f)       # (N, 4)
+        w = torch.clamp(w, min=w_min, max=w_max) # (N, 4)
+        
+        # Convert rad/s to RPM
+        w_rpm = w * (60 / (2 * math.pi)) # (N, 4)
+        
+        return w_rpm # (N, 4)
+    
+    @staticmethod
+    def _quat_to_yaw(quat: torch.Tensor) -> torch.Tensor:
+
+        # Quaternion format
+        w = quat[:, 0]; x = quat[:, 1]; y = quat[:, 2]; z = quat[:, 3]
+
+        # Yaw extraction
+        t0 = 2.0 * (w * z + x * y)
+        t1 = 1.0 - 2.0 * (y * y + z * z)
+        yaw = torch.atan2(t0, t1)
+        
+        return yaw.view(-1, 1)
     
     
+    @configclass
+    class BaseControllerCfg(ActionTermCfg):
+        
+        asset_name: str = "Robot"
+        arm_length: float = 0.1
+        
+        k_f_rpm2: float = 6.11e-8
+        k_m_rpm2: float = 1.5e-9
+        
+        w_min_rpm: float = 0.0
+        w_max_rpm: float = 20000.0
+        
+        rotor_dirs: list[float] = [1.0, -1.0, 1.0, -1.0] # CW: +1, CCW: -1
+        rotor_xy_normalized: list[list[float]] = [ 
+            [+1.0, +1.0],  # Front right
+            [-1.0, +1.0],  # Front left
+            [-1.0, -1.0],  # Back left
+            [+1.0, -1.0]]  # Back right 
+        rotor_xy: list[list[float]] = rotor_xy_normalized * arm_length / math.sqrt(2)
+        
+class BaseController(ActionTerm):
+    
+    def __init__(self, cfg: ActionFns.BaseControllerCfg, env: ManagerBasedEnv):
+        
+        super().__init__(cfg, env)
+        
+        self._asset: AssetBase = self._env.scene[self.cfg.asset_name]
+        self._device = self._asset.device
+        self._dtype = self._asset.dtype
+        
+        # Set tensors
+        self._rotor_xy = torch.tensor(self.cfg.rotor_xy, device=self._device, dtype=self._dtype)      # (4,2)
+        self._rotor_dirs = torch.tensor(self.cfg.rotor_dirs, device=self._device, dtype=self._dtype)  # (4,)
+        
+        # Set conversion factors
+        self._rad_to_rpm = torch.tensor(60 / (2 * math.pi), device=self._device, dtype=self._dtype)
+        self._rpm_to_rad = torch.tensor(2 * math.pi / 60, device=self._device, dtype=self._dtype)
+
+        # Convert coefficients to rad/s
+        self._k_f_rpm2 = torch.tensor(cfg.k_f_rpm2, device=self._device, dtype=self._dtype)
+        self._k_m_rpm2 = torch.tensor(cfg.k_m_rpm2, device=self._device, dtype=self._dtype)
+        self._k_f = self._k_f_rpm2 * (self._rad_to_rpm ** 2)
+        self._k_m = self._k_m_rpm2 * (self._rad_to_rpm ** 2)
+        
+        # Convert min/max rpm to rad/s
+        self._w_min_rpm = torch.tensor(cfg.w_min_rpm, device=self._device, dtype=self._dtype)
+        self._w_max_rpm = torch.tensor(cfg.w_max_rpm, device=self._device, dtype=self._dtype)
+        self._w_min = self._w_min_rpm * self._rpm_to_rad
+        self._w_max = self._w_max_rpm * self._rpm_to_rad
+
+        # Initialize action tensors
+        N = self._env.num_envs
+        self._raw = torch.zeros(N, 4, device=self._device)          # (N,4) raw actions
+        self._thrust = torch.zeros(N, 1, 3, device=self._device)    # (N,1,3) total thrust force
+        self._moment = torch.zeros(N, 1, 3, device=self._device)    # (N,1,3) total moment/torque
+        self._omega = torch.zeros(N, 4, device=self._device)        # (N,4) processed motor speeds (rad/s)
+
+        # Set mass tensor
+        mass = self._asset.root_physx_view.get_masses()
+        self._mass = mass.to(device=self._device, dtype=self._dtype) # (1,)
+        ids, names = self._asset.find_bodies(".*", preserve_order=True)
+        self._body_ids = [int(ids[0])]
+        
+        self.CascadedController = mdp.CascadedController.CascadedController(
+            num_envs = CONFIG["SCENE"]["NUM_ENVS"],
+            dt = CONFIG["ENV"]["PHYSICS_DT"],
+            cfg = mdp.CascadedController.CascadedController.CascadedControllerCfg(),
+            dtype = self._dtype,
+        )
+    
+    @property
+    def action_dim(self) -> int:
+        return 4
+    
+    @property
+    def raw(self) -> torch.Tensor:
+        return self._raw
+    
+    @property
+    def processed_actions(self) -> torch.Tensor:
+        return self._omega
+    
+    def process_actions(self, actions: torch.Tensor) -> torch.Tensor:
+        
+        actions = actions.to(device=self._device, dtype=self._dtype)
+        actions = torch.clamp(actions, min=-1.0, max=1.0)
+        self._raw = actions
+        
+        # Observations
+        asset_cfg = mdp.SceneEntityCfg(name=self.cfg.asset_name)
+        pos_w = mdp.ObservationFns.get_current_pos_w(self._env, asset_cfg)  # (N, 3)
+        pos_sp_w = mdp.ObservationFns.get_spawn_pos_w(self._env, asset_cfg) # (N, 3)
+        vel_w = mdp.ObservationFns.get_lin_vel_w(self._env, asset_cfg)      # (N, 3)
+        quat_w = mdp.ObservationFns.get_quaternion_w(self._env, asset_cfg)  # (N, 4)
+        ang_vel_b = mdp.ObservationFns.get_ang_vel_b(self._env, asset_cfg)  # (N, 3)
+
+        # Cascaded control
+        vel_sp_w = self.CascadedController.position_control(pos_w, pos_sp_w)
+        acc_sp_w = self.CascadedController.velocity_control(vel_w, vel_sp_w)
+        yaw_sp = ActionFns._quat_to_yaw(quat_w) # (N, 1)
+        quat_sp_w, t_norm = self.CascadedController.acc_yaw_to_quaternion_thrust(acc_sp_w, yaw_sp)
+        ang_vel_sp_b = self.CascadedController.attitude_control(quat_w, quat_sp_w)
+        momentum_sp_b = self.CascadedController.rate_control(ang_vel_b, ang_vel_sp_b)
+        
+        # Mixing
+        self._mixed_thrust = ActionFns.mix_rate_thrust_to_rotor_forces(
+            required_accel = t_norm,
+            momentum_sp_b = momentum_sp_b,
+            rotor_xy = self._rotor_xy,
+            rotor_dirs = self._rotor_dirs,
+            k_f_rpm2 = self._k_f_rpm2,
+            k_m_rpm2 = self._k_m_rpm2,
+            mass = self._mass
+        ) # (N, 4)
+        
+        self._mixed_rpm = ActionFns.thrust_to_rpm(
+            rotor_forces = self._mixed_thrust,
+            w_min_rpm = self._w_min_rpm,
+            w_max_rpm = self._w_max_rpm,
+            k_f = self._k_f,
+        ) # (N, 4)
+        
+        self._omega = self._mixed_rpm * self._rpm_to_rad # (N, 4)
+        
+        return self._omega
+        
+    def apply_actions(self):
+        
+        Fz = self._mixed_thrust.sum(dim=1) # (N,)
+        self._thrust.zero_()
+        self._thrust[:, 0, 2] = Fz
+        
+        x = self._rotor_xy[:, 0]
+        y = self._rotor_xy[:, 1]
+        tau_x = (y * self._mixed_thrust).sum(dim=1) # (N,)
+        tau_y = (-x * self._mixed_thrust).sum(dim=1) # (N,)
+        tau_z = (self._rotor_dirs * self._k_m / self._k_f * self._mixed_thrust).sum(dim=1) # (N,)
+        self._moment.zero_()
+        self._moment[:, 0, 1] = tau_x
+        self._moment[:, 1, 1] = tau_y
+        self._moment[:, 2, 1] = tau_z
+
+        self._asset.set_external_force_and_torque(
+            body_ids = self._body_ids,
+            forces = self._thrust,
+            torques = self._moment,
+            is_global = False,
+        )
+    
+        
