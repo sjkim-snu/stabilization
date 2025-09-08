@@ -89,7 +89,9 @@ class RewardFns:
             and 0.5 when the position error equals norm_half.
         """
 
-        error_w = mdp.ObservationFns.position_error_w(env, asset_cfg) # (N, 3)
+        spawn_pos_w = mdp.ObservationFns.get_spawn_pos_w(env, asset_cfg) # (N, 3)
+        current_pos_w = mdp.ObservationFns.get_current_pos_w(env, asset_cfg) # (N, 3)
+        error_w = spawn_pos_w - current_pos_w # (N, 3)
         error_norm = l2_norm(error_w) # (N,)
         k = k_from_half(norm_half)
         pos_reward = sigmoid(error_norm, k) # (N,)
@@ -97,7 +99,7 @@ class RewardFns:
         return pos_reward
     
     @staticmethod
-    def lin_vel_b_sigmoid(
+    def lin_vel_w_sigmoid(
         env: ManagerBasedEnv,
         norm_half: float,
         asset_cfg: SceneEntityCfg = SceneEntityCfg(name="Robot")
@@ -117,8 +119,8 @@ class RewardFns:
             and 0.5 when the linear velocity equals norm_half.
         """
         
-        lin_vel_b = mdp.ObservationFns.lin_vel_body(env, asset_cfg)
-        lin_vel_norm = l2_norm(lin_vel_b)
+        lin_vel_w = mdp.ObservationFns.get_lin_vel_w(env, asset_cfg)
+        lin_vel_norm = l2_norm(lin_vel_w)
         k = k_from_half(norm_half)
         vel_reward = sigmoid(lin_vel_norm, k)
         _push_rew_term(env, "lin_vel", vel_reward)
@@ -145,34 +147,34 @@ class RewardFns:
             and 0.5 when the angular velocity equals norm_half.
         """
         
-        ang_vel_b = mdp.ObservationFns.ang_vel_body(env, asset_cfg)
+        ang_vel_b = mdp.ObservationFns.get_ang_vel_b(env, asset_cfg)
         ang_vel_norm = l2_norm(ang_vel_b)
         k = k_from_half(norm_half)
         ang_vel_reward = sigmoid(ang_vel_norm, k)
         _push_rew_term(env, "ang_vel", ang_vel_reward)
         return ang_vel_reward
     
-    @staticmethod
-    def orientation_sigmoid(
-        env: ManagerBasedEnv, 
-        norm_half: float,
-        asset_cfg: SceneEntityCfg = SceneEntityCfg(name="Robot")
-    ) -> torch.Tensor:
+    # @staticmethod
+    # def orientation_sigmoid(
+    #     env: ManagerBasedEnv, 
+    #     norm_half: float,
+    #     asset_cfg: SceneEntityCfg = SceneEntityCfg(name="Robot")
+    # ) -> torch.Tensor:
         
-        """
-        Reward based on the orientation (roll, pitch) using a sigmoid function.
-        Returns (N,) float tensor.
-        """
+    #     """
+    #     Reward based on the orientation (roll, pitch) using a sigmoid function.
+    #     Returns (N,) float tensor.
+    #     """
         
-        roll  = mdp.ObservationFns.roll_current(env, asset_cfg).reshape(-1, 1)   # (N,1)
-        pitch = mdp.ObservationFns.pitch_current(env, asset_cfg).reshape(-1, 1)  # (N,1)
+    #     roll  = mdp.ObservationFns.roll_current(env, asset_cfg).reshape(-1, 1)   # (N,1)
+    #     pitch = mdp.ObservationFns.pitch_current(env, asset_cfg).reshape(-1, 1)  # (N,1)
 
-        orientation = torch.cat([roll, pitch], dim=1)       # (N, 2)
-        orientation_norm = l2_norm(orientation)             # (N,)
-        k = k_from_half(norm_half)
-        orientation_reward = sigmoid(orientation_norm, k)   # (N,)
-        _push_rew_term(env, "ori_err", orientation_reward)
-        return orientation_reward
+    #     orientation = torch.cat([roll, pitch], dim=1)       # (N, 2)
+    #     orientation_norm = l2_norm(orientation)             # (N,)
+    #     k = k_from_half(norm_half)
+    #     orientation_reward = sigmoid(orientation_norm, k)   # (N,)
+    #     _push_rew_term(env, "ori_err", orientation_reward)
+    #     return orientation_reward
 
 @configclass
 class RewardCfg:
@@ -185,8 +187,8 @@ class RewardCfg:
         weight=CONFIG["REWARD"]["POS_ERR_WEIGHT"],
     )
     
-    lin_vel_b = RewTerm(
-        func=RewardFns.lin_vel_b_sigmoid,
+    lin_vel_w = RewTerm(
+        func=RewardFns.lin_vel_w_sigmoid,
         params={
             "asset_cfg": SceneEntityCfg(name="Robot"), 
             "norm_half": CONFIG["REWARD"]["LIN_VEL_HALF"]},
@@ -201,10 +203,10 @@ class RewardCfg:
         weight=CONFIG["REWARD"]["ANG_VEL_WEIGHT"],
     )
     
-    orientation = RewTerm(
-        func=RewardFns.orientation_sigmoid,
-        params={
-            "asset_cfg": SceneEntityCfg(name="Robot"), 
-            "norm_half": CONFIG["REWARD"]["ORI_ERR_HALF"]},
-        weight=CONFIG["REWARD"]["ORI_ERR_WEIGHT"],
-    )
+    # orientation = RewTerm(
+    #     func=RewardFns.orientation_sigmoid,
+    #     params={
+    #         "asset_cfg": SceneEntityCfg(name="Robot"), 
+    #         "norm_half": CONFIG["REWARD"]["ORI_ERR_HALF"]},
+    #     weight=CONFIG["REWARD"]["ORI_ERR_WEIGHT"],
+    # )

@@ -50,7 +50,7 @@ class EventFns:
             env_ids = env_ids.to(device)
         
         M = env_ids.shape[0]
-        pos_all = mdp.ObservationFns.spawn_position_w(env, asset_cfg.name).to(device)  # (N, 3)
+        pos_all = mdp.ObservationFns.get_spawn_pos_w(env, asset_cfg.name).to(device)  # (N, 3)
         pos_w = pos_all[env_ids]  # (M, 3)
         
         # Randomize orientation

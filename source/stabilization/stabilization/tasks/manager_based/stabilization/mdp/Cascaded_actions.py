@@ -104,34 +104,34 @@ class ActionFns:
         return yaw.view(-1, 1)
     
     
-    @configclass
-    class BaseControllerCfg(ActionTermCfg):
+@configclass
+class BaseControllerCfg(ActionTermCfg):
         
-        asset_name: str = "Robot"
-        arm_length: float = 0.1
-        
-        k_f_rpm2: float = 6.11e-8
-        k_m_rpm2: float = 1.5e-9
-        
-        w_min_rpm: float = 0.0
-        w_max_rpm: float = 20000.0
-        
-        rotor_dirs: list[float] = [1.0, -1.0, 1.0, -1.0] # CW: +1, CCW: -1
-        rotor_xy_normalized: list[list[float]] = [ 
-            [+1.0, +1.0],  # Front right
-            [-1.0, +1.0],  # Front left
-            [-1.0, -1.0],  # Back left
-            [+1.0, -1.0]]  # Back right 
+    asset_name: str = "Robot"
+    arm_length: float = 0.1
+    
+    k_f_rpm2: float = 6.11e-8
+    k_m_rpm2: float = 1.5e-9
+    
+    w_min_rpm: float = 0.0
+    w_max_rpm: float = 20000.0
+    
+    rotor_dirs: list[float] = [1.0, -1.0, 1.0, -1.0] # CW: +1, CCW: -1
+    rotor_xy_normalized: list[list[float]] = [ 
+        [+1.0, +1.0],  # Front right
+        [-1.0, +1.0],  # Front left
+        [-1.0, -1.0],  # Back left
+        [+1.0, -1.0]]  # Back right 
 
 class BaseController(ActionTerm):
     
-    def __init__(self, cfg: ActionFns.BaseControllerCfg, env: ManagerBasedEnv):
+    def __init__(self, cfg: BaseControllerCfg, env: ManagerBasedEnv):
         
         super().__init__(cfg, env)
         
         self._asset: AssetBase = self._env.scene[self.cfg.asset_name]
         self._device = self._asset.device
-        self._dtype = self._asset.dtype
+        self._dtype = torch.float32
         
         # Set tensors
         self._arm_length = torch.tensor(self.cfg.arm_length, device=self._device, dtype=self._dtype) # (1,)
@@ -167,10 +167,10 @@ class BaseController(ActionTerm):
         ids, names = self._asset.find_bodies(".*", preserve_order=True)
         self._body_ids = [int(ids[0])]
         
-        self.CascadedController = mdp.CascadedController(
+        self.CascadeController = mdp.CascadeController(
             num_envs = CONFIG["SCENE"]["NUM_ENVS"],
             dt = CONFIG["ENV"]["PHYSICS_DT"],
-            cfg = mdp.CascadedControllerCfg(),
+            cfg = mdp.CascadeControllerCfg(),
             dtype = self._dtype,
         )
     
@@ -179,7 +179,7 @@ class BaseController(ActionTerm):
         return 4
     
     @property
-    def raw(self) -> torch.Tensor:
+    def raw_actions(self) -> torch.Tensor:
         return self._raw
     
     @property
@@ -201,13 +201,13 @@ class BaseController(ActionTerm):
         ang_vel_b = mdp.ObservationFns.get_ang_vel_b(self._env, asset_cfg)  # (N, 3)
 
         # Cascaded control
-        vel_sp_w = self.CascadedController.position_control(pos_w, pos_sp_w)
-        acc_sp_w = self.CascadedController.velocity_control(vel_w, vel_sp_w)
+        vel_sp_w = self.CascadeController.position_control(pos_w, pos_sp_w)
+        acc_sp_w = self.CascadeController.velocity_control(vel_w, vel_sp_w)
         yaw_sp = ActionFns._quat_to_yaw(quat_w) # (N, 1)
-        quat_sp_w, t_norm = self.CascadedController.acc_yaw_to_quaternion_thrust(acc_sp_w, yaw_sp)
-        ang_vel_sp_b = self.CascadedController.attitude_control(quat_w, quat_sp_w)
-        momentum_sp_b = self.CascadedController.rate_control(ang_vel_b, ang_vel_sp_b)
-        
+        quat_sp_w, t_norm = self.CascadeController.acc_yaw_to_quaternion_thrust(acc_sp_w, yaw_sp)
+        ang_vel_sp_b = self.CascadeController.attitude_control(quat_w, quat_sp_w)
+        momentum_sp_b = self.CascadeController.rate_control(ang_vel_b, ang_vel_sp_b)
+
         # Mixing
         self._mixed_thrust = ActionFns.mix_rate_thrust_to_rotor_forces(
             required_accel = t_norm,
@@ -242,9 +242,9 @@ class BaseController(ActionTerm):
         tau_y = (-x * self._mixed_thrust).sum(dim=1) # (N,)
         tau_z = (self._rotor_dirs * self._k_m / self._k_f * self._mixed_thrust).sum(dim=1) # (N,)
         self._moment.zero_()
-        self._moment[:, 0, 1] = tau_x
-        self._moment[:, 1, 1] = tau_y
-        self._moment[:, 2, 1] = tau_z
+        self._moment[:, 0, 0] = tau_x
+        self._moment[:, 0, 1] = tau_y
+        self._moment[:, 0, 2] = tau_z
 
         self._asset.set_external_force_and_torque(
             body_ids = self._body_ids,
