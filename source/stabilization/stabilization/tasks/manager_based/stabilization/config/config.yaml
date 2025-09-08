@@ -79,6 +79,19 @@ TERMINATION:
   DIST_THRESHOLD: 10.0      # Terminate if distance from spawn exceeds (m)
   ALTITUDE_THRESHOLD: 0.02  # Terminate if altitude is below (m)
 
+CASCADE_CONTROLLER:
+  POS_P: [1.0, 1.0, 1.0]        # Proportional gain for position controller
+  VEL_P: [2.0, 2.0, 4.0]        # Proportional gain for velocity controller
+  VEL_I: [0.0, 0.0, 0.0]        # Integral gain for velocity controller
+  ATT_P: [1.0, 1.0, 1.0]  # Proportional gain for attitude controller
+  RATE_P: [0.1, 0.1, 0.3]  # Proportional gain for angular rate controller
+  RATE_I: [0.0, 0.0, 0.0]  # Integral gain for angular rate controller
+  VEL_LIMIT: [5.0, 5.0, 5.0]      # Velocity limit (m/s)
+  ANG_VEL_LIMIT: [5.0, 5.0, 5.0]  # Angular velocity limit (rad/s)
+  ACC_LIMIT: [10.0, 10.0, 10.0]  # Acceleration limit (m/s^2)
+  RATE_LIMIT: [10.0, 10.0, 10.0]  # Angular rate limit (rad/s^2)
+  VEL_I_CLAMP: [0.0, 0.0, 0.0]   # Integral windup limit for velocity controller
+  RATE_I_CLAMP: [0.0, 0.0, 0.0]  # Integral windup limit for angular rate controller
 
 
   

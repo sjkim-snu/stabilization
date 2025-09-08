@@ -1,5 +1,6 @@
 from __future__ import annotations
 from dataclasses import dataclass
+from isaaclab.utils import configclass
 import torch
 from typing import Sequence, Tuple
 from stabilization.tasks.manager_based.stabilization.config import load_parameters
@@ -83,7 +84,7 @@ class ControllerFns:
         return torch.stack([w, x, y, z], dim=1)
 
 
-@dataclass
+@configclass
 class CascadeControllerCfg:
     
     # Position controller gains

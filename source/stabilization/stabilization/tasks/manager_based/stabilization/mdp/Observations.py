@@ -109,6 +109,6 @@ class ObservationsCfg:
         )
         
         ang_vel_b = ObsTerm(
-            func=ObservationFns.ang_vel_body,
+            func=ObservationFns.get_ang_vel_b,
             params={"asset_cfg": SceneEntityCfg(name="Robot")},
         )

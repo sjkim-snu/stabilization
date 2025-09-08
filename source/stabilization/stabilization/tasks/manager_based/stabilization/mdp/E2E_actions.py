@@ -26,7 +26,7 @@ Note that NED (North-East-Down) is not used here.
 # https://isaac-sim.github.io/IsaacLab/main/source/api/lab/isaaclab.managers.html#isaaclab.managers.ActionTermCfg
 
 @configclass
-class BaseControllerCfg(ActionTermCfg):
+class BaseActionCfg(ActionTermCfg):
     
     """
     Parameters for a quadrotor controller and action processing.
@@ -57,7 +57,7 @@ class BaseControllerCfg(ActionTermCfg):
 
 # https://isaac-sim.github.io/IsaacLab/main/source/api/lab/isaaclab.managers.html#isaaclab.managers.ActionTerm
 
-class BaseController(ActionTerm):
+class BaseAction(ActionTerm):
     
     """
     The action term for a quadrotor controller, which defines action processing (motor speeds), 
@@ -75,7 +75,7 @@ class BaseController(ActionTerm):
     # https://isaac-sim.github.io/IsaacLab/main/_modules/isaaclab/managers/manager_base.html#ManagerTermBase
     # https://isaac-sim.github.io/IsaacLab/main/source/api/lab/isaaclab.assets.html#isaaclab.assets.AssetBase
     
-    def __init__(self, cfg: BaseControllerCfg, env: ManagerBasedEnv):
+    def __init__(self, cfg: BaseActionCfg, env: ManagerBasedEnv):
         
         """
         Initialize the action term.

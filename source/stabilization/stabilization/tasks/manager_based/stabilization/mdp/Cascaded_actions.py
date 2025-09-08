@@ -122,8 +122,7 @@ class ActionFns:
             [-1.0, +1.0],  # Front left
             [-1.0, -1.0],  # Back left
             [+1.0, -1.0]]  # Back right 
-        rotor_xy: list[list[float]] = rotor_xy_normalized * arm_length / math.sqrt(2)
-        
+
 class BaseController(ActionTerm):
     
     def __init__(self, cfg: ActionFns.BaseControllerCfg, env: ManagerBasedEnv):
@@ -135,9 +134,10 @@ class BaseController(ActionTerm):
         self._dtype = self._asset.dtype
         
         # Set tensors
-        self._rotor_xy = torch.tensor(self.cfg.rotor_xy, device=self._device, dtype=self._dtype)      # (4,2)
+        self._arm_length = torch.tensor(self.cfg.arm_length, device=self._device, dtype=self._dtype) # (1,)
         self._rotor_dirs = torch.tensor(self.cfg.rotor_dirs, device=self._device, dtype=self._dtype)  # (4,)
-        
+        self._rotor_xy = torch.tensor(self.cfg.rotor_xy_normalized, device=self._device, dtype=self._dtype) * self._arm_length / torch.sqrt(torch.tensor(2.0)) # (4,2)
+
         # Set conversion factors
         self._rad_to_rpm = torch.tensor(60 / (2 * math.pi), device=self._device, dtype=self._dtype)
         self._rpm_to_rad = torch.tensor(2 * math.pi / 60, device=self._device, dtype=self._dtype)
@@ -167,10 +167,10 @@ class BaseController(ActionTerm):
         ids, names = self._asset.find_bodies(".*", preserve_order=True)
         self._body_ids = [int(ids[0])]
         
-        self.CascadedController = mdp.CascadedController.CascadedController(
+        self.CascadedController = mdp.CascadedController(
             num_envs = CONFIG["SCENE"]["NUM_ENVS"],
             dt = CONFIG["ENV"]["PHYSICS_DT"],
-            cfg = mdp.CascadedController.CascadedController.CascadedControllerCfg(),
+            cfg = mdp.CascadedControllerCfg(),
             dtype = self._dtype,
         )
     

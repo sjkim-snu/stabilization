@@ -7,7 +7,8 @@
 
 from isaaclab.envs.mdp import *
 from .E2E_actions import *
-# from .Cascaded_actions import *
+from .Cascaded_actions import *
+from .CascadeController import *
 from .Rewards import *
 from .Observations import *
 from .Events import *
