@@ -19,7 +19,7 @@
 LAUNCHER:
   HEADLESS: false            # Whether to run in headless mode
   DEVICE: "cuda:0"           # Device to run the simulation on
-  USE_MANUAL_ACTION: True    # Only for testing. If true, use the action specified below.
+  USE_MANUAL_ACTION: false    # Only for testing. If true, use the action specified below.
   MANUAL_ACTION: [-0.937, -0.937, -0.937, -0.937]
 
 # ─────────────────────────────────────────────────────────────────────────────────────
@@ -80,11 +80,11 @@ TERMINATION:
   ALTITUDE_THRESHOLD: 0.02  # Terminate if altitude is below (m)
 
 CASCADE_CONTROLLER:
-  POS_P: [1.0, 1.0, 1.0]        # Proportional gain for position controller
-  VEL_P: [2.0, 2.0, 4.0]        # Proportional gain for velocity controller
-  VEL_I: [0.0, 0.0, 0.0]        # Integral gain for velocity controller
-  ATT_P: [1.0, 1.0, 1.0]  # Proportional gain for attitude controller
-  RATE_P: [0.1, 0.1, 0.3]  # Proportional gain for angular rate controller
+  POS_P: [0.01, 0.01, 0.01]        # Proportional gain for position controller
+  VEL_P: [0.02, 0.02, 0.02]        # Proportional gain for velocity controller
+  VEL_I: [0.01, 0.01, 0.01]        # Integral gain for velocity controller
+  ATT_P: [0.01, 0.01, 0.01]  # Proportional gain for attitude controller
+  RATE_P: [0.01, 0.01, 0.03]  # Proportional gain for angular rate controller
   RATE_I: [0.0, 0.0, 0.0]  # Integral gain for angular rate controller
   VEL_LIMIT: [5.0, 5.0, 5.0]      # Velocity limit (m/s)
   ANG_VEL_LIMIT: [5.0, 5.0, 5.0]  # Angular velocity limit (rad/s)

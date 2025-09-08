@@ -146,7 +146,7 @@ class BaseController(ActionTerm):
         self._k_f_rpm2 = torch.tensor(cfg.k_f_rpm2, device=self._device, dtype=self._dtype)
         self._k_m_rpm2 = torch.tensor(cfg.k_m_rpm2, device=self._device, dtype=self._dtype)
         self._k_f = self._k_f_rpm2 * (self._rad_to_rpm ** 2)
-        self._k_m = self._k_m_rpm2 * (self._rad_to_rpm ** 2)
+        self._k_m = self._k_m_rpm2 * (self._rad_to_rpm ** 2) 
         
         # Convert min/max rpm to rad/s
         self._w_min_rpm = torch.tensor(cfg.w_min_rpm, device=self._device, dtype=self._dtype)
@@ -232,8 +232,8 @@ class BaseController(ActionTerm):
         return self._omega
         
     def apply_actions(self):
-        
-        Fz = self._mixed_thrust.sum(dim=1) # (N,)
+
+        Fz = (self._mixed_rpm ** 2 * self._k_f).sum(dim=1) # (N,)
         self._thrust.zero_()
         self._thrust[:, 0, 2] = Fz
         
