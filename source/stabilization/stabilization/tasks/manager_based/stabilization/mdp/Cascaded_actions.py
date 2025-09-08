@@ -20,12 +20,12 @@ class ActionFns:
     @staticmethod
     def mix_rate_thrust_to_rotor_forces(
         required_accel: torch.Tensor,    # (N, 1)
+        mass: torch.Tensor,              # (N, 1)
         momentum_sp_b: torch.Tensor,     # (N, 3)
         rotor_xy: torch.Tensor,          # (4, 2)
         rotor_dirs: torch.Tensor,        # (4,)
         k_f_rpm2: torch.Tensor,          # (1,)
         k_m_rpm2: torch.Tensor,          # (1,)
-        mass: torch.Tensor,              # (1,)
         ) -> torch.Tensor:
         
         # Handle device and dtype
@@ -35,12 +35,12 @@ class ActionFns:
         
         # Set tensors
         momentum_sp_b = momentum_sp_b.to(device=device, dtype=dtype) # (N, 3)
+        mass = mass.to(device=device, dtype=dtype)                   # (N, 1)
         x = rotor_xy[:, 0].to(device=device, dtype=dtype)            # (4,)
         y = rotor_xy[:, 1].to(device=device, dtype=dtype)            # (4,)
         rotor_dirs = rotor_dirs.to(device=device, dtype=dtype)       # (4,)
         k_m_rpm2 = k_m_rpm2.to(device=device, dtype=dtype)           # (1,)
         k_f_rpm2 = k_f_rpm2.to(device=device, dtype=dtype)           # (1,)
-        mass = mass.to(device=device, dtype=dtype)                   # (1,)
         c = rotor_dirs * (k_m_rpm2 / k_f_rpm2)                       # (4,)
 
         # Mixing matrix
@@ -49,7 +49,7 @@ class ActionFns:
         
         # Desired thrust, torque vector
         T = torch.zeros((N, 4), device=device, dtype=dtype) # (N, 4)
-        total_thrust = required_accel.squeeze(-1) * mass    # (N, 1)
+        total_thrust = (required_accel * mass).squeeze(-1)  # (N,)
         T[:, 0]   = total_thrust                            # (N,)
         T[:, 1:4] = momentum_sp_b                           # (N,)
 
@@ -108,13 +108,13 @@ class ActionFns:
 class BaseControllerCfg(ActionTermCfg):
         
     asset_name: str = "Robot"
-    arm_length: float = 0.1
+    arm_length: float = 0.046
     
-    k_f_rpm2: float = 6.11e-8
-    k_m_rpm2: float = 1.5e-9
+    k_f_rpm2: float = 2.44e-10
+    k_m_rpm2: float = 1.24e-12
     
     w_min_rpm: float = 0.0
-    w_max_rpm: float = 20000.0
+    w_max_rpm: float = 25000.0
     
     rotor_dirs: list[float] = [1.0, -1.0, 1.0, -1.0] # CW: +1, CCW: -1
     rotor_xy_normalized: list[list[float]] = [ 
@@ -163,7 +163,8 @@ class BaseController(ActionTerm):
 
         # Set mass tensor
         mass = self._asset.root_physx_view.get_masses()
-        self._mass = mass.to(device=self._device, dtype=self._dtype) # (1,)
+        mass = torch.as_tensor(mass, device=self._device, dtype=self._dtype).sum(dim=1, keepdim=True)
+        self._mass = mass.to(device=self._device, dtype=self._dtype) # (N, 1)
         ids, names = self._asset.find_bodies(".*", preserve_order=True)
         self._body_ids = [int(ids[0])]
         
@@ -206,7 +207,7 @@ class BaseController(ActionTerm):
         yaw_sp = ActionFns._quat_to_yaw(quat_w) # (N, 1)
         quat_sp_w, t_norm = self.CascadeController.acc_yaw_to_quaternion_thrust(acc_sp_w, yaw_sp)
         ang_vel_sp_b = self.CascadeController.attitude_control(quat_w, quat_sp_w)
-        momentum_sp_b = self.CascadeController.rate_control(ang_vel_b, ang_vel_sp_b)
+        momentum_sp_b = self.CascadeController.body_rate_control(ang_vel_b, ang_vel_sp_b)
 
         # Mixing
         self._mixed_thrust = ActionFns.mix_rate_thrust_to_rotor_forces(

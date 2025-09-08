@@ -116,18 +116,18 @@ def main():
 
             # for debugging, print every 125 steps (1 sec)
             if step % 125 == 0:
-                pos_err = mdp.ObservationFns.position_error_w(env, asset)[0]
-                lin_b   = mdp.ObservationFns.lin_vel_body(env, asset)[0]
-                ang_b   = mdp.ObservationFns.ang_vel_body(env, asset)[0]
-                roll    = mdp.ObservationFns.roll_current(env, asset)[0].item()
-                pitch   = mdp.ObservationFns.pitch_current(env, asset)[0].item()
-                yaw     = mdp.ObservationFns.yaw_current(env, asset)[0].item()
+                # pos_err = mdp.ObservationFns.position_error_w(env, asset)[0]
+                lin_w   = mdp.ObservationFns.get_lin_vel_w(env, asset)[0]
+                ang_b   = mdp.ObservationFns.get_ang_vel_b(env, asset)[0]
+                # roll    = mdp.ObservationFns.roll_current(env, asset)[0].item()
+                # pitch   = mdp.ObservationFns.pitch_current(env, asset)[0].item()
+                # yaw     = mdp.ObservationFns.yaw_current(env, asset)[0].item()
 
                 print(
-                    f"[env0] pos_err_w=({pos_err[0]:+.3f},{pos_err[1]:+.3f},{pos_err[2]:+.3f})  "
-                    f"lin_vel_b=({lin_b[0]:+.3f},{lin_b[1]:+.3f},{lin_b[2]:+.3f})  "
+                    # f"[env0] pos_err_w=({pos_err[0]:+.3f},{pos_err[1]:+.3f},{pos_err[2]:+.3f})  "
+                    f"lin_vel_w=({lin_w[0]:+.3f},{lin_w[1]:+.3f},{lin_w[2]:+.3f})  "
                     f"ang_vel_b=({ang_b[0]:+.3f},{ang_b[1]:+.3f},{ang_b[2]:+.3f})  "
-                    f"orientation=({roll:+.2f},{pitch:+.2f},{yaw:+.2f})  "
+                    # f"orientation=({roll:+.2f},{pitch:+.2f},{yaw:+.2f})  "
                     f"reward={rew[0].item():+.4f}"
                 )
 
