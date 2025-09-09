@@ -261,21 +261,21 @@ class CascadeController:
 
     def body_rate_control(self,
                           inertia_matrix: torch.Tensor, # (N, 3)
-                          ang_vel_b: torch.Tensor,      # (N, 3)
+                          ang_vel_b: torch.Tensor,      # (N, 3) [rad/s]
                           ang_vel_sp_b: torch.Tensor):
         
         # Compute attitude error
-        ang_vel_err = ang_vel_sp_b - ang_vel_b      # (N, 3)
+        ang_vel_err = ang_vel_sp_b - ang_vel_b      
         ang_vel_int_new = self._ang_vel_int + ang_vel_err * self.dt
 
         # Compute P, I terms
-        P_term = self._rate_P * ang_vel_err
+        P_term = self._rate_P * ang_vel_err                  
         I_term = self._rate_I * ang_vel_int_new
         tau_sp_b = P_term + I_term
 
         # Compute gyro torque
         gyro = torch.cross(ang_vel_b, inertia_matrix * ang_vel_b, dim=1)  # (N, 3)
-        torque_sp_b = tau_sp_b + gyro  # (N, 3)
+        torque_sp_b = inertia_matrix * tau_sp_b + gyro  # (N, 3)
         
         # Anti windup: only integrate if not saturated
         torque_sp_lim_b = torch.clamp(torque_sp_b, -self._torque_limit, self._torque_limit)
@@ -289,7 +289,7 @@ class CascadeController:
         I_term = torch.clamp(I_term, -self._rate_I_clamp, self._rate_I_clamp)
         tau_sp_b = P_term + I_term
         tau_sp_b = torch.clamp(tau_sp_b, -self._torque_limit, self._torque_limit)
-        torque_sp_b = tau_sp_b + gyro
+        torque_sp_b = inertia_matrix * tau_sp_b + gyro
         torque_sp_b = torch.clamp(torque_sp_b, -self._torque_limit, self._torque_limit)
 
         # Store for logging

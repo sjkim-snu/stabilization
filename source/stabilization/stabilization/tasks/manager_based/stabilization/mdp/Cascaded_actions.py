@@ -54,7 +54,7 @@ class ActionFns:
         T[:, 1:4] = momentum_sp_b                           # (N,)
 
         # Compute rotor forces
-        rotor_forces = torch.matmul(T, Minv)
+        rotor_forces = torch.matmul(T, Minv.T) # (N, 4)
         rotor_forces = torch.clamp(rotor_forces, min=0.0) # (N, 4)
         
         return rotor_forces

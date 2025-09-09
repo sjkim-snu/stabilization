@@ -16,6 +16,7 @@ from stabilization.tasks.manager_based.stabilization.config import load_paramete
 import stabilization.tasks.manager_based.stabilization.envs as envs
 import stabilization.tasks.manager_based.stabilization.mdp as mdp
 import Logger
+import math
 
 CONFIG = load_parameters()
 
@@ -114,20 +115,32 @@ def main():
                 actions=actions, 
             )
 
-            # for debugging, print every 125 steps (1 sec)
-            if step % 125 == 0:
-                # pos_err = mdp.ObservationFns.position_error_w(env, asset)[0]
-                lin_w   = mdp.ObservationFns.get_lin_vel_w(env, asset)[0]
-                ang_b   = mdp.ObservationFns.get_ang_vel_b(env, asset)[0]
-                # roll    = mdp.ObservationFns.roll_current(env, asset)[0].item()
-                # pitch   = mdp.ObservationFns.pitch_current(env, asset)[0].item()
-                # yaw     = mdp.ObservationFns.yaw_current(env, asset)[0].item()
+            if step % 25 == 0: # 5Hz
+                # 관측값
+                lin_w = mdp.ObservationFns.get_lin_vel_w(env, asset)[0]
+                ang_b = mdp.ObservationFns.get_ang_vel_b(env, asset)[0]
+
+                # 액션/추력 디버깅
+                bc = env.action_manager.get_term("base_controller")  # name은 ActionsCfg의 필드명과 동일
+                # raw(-1~1), processed(ω: rad/s)
+                raw_act = bc.raw_actions[0]                 # (4,)
+                omega   = bc.processed_actions[0]           # (4,) rad/s
+
+                # 총추력 합 Fz = Σ(k_f * ω^2)  [N]
+                # (BaseController에서 k_f는 rad/s^2 계수로 변환되어 있음)
+                kf = bc._k_f
+                Fz_total = float((omega**2 * kf).sum().item())
+
+                # 보조 출력: 각 모터 rpm
+                rpm = (omega * (60.0 / (2.0 * math.pi))).tolist()
 
                 print(
-                    # f"[env0] pos_err_w=({pos_err[0]:+.3f},{pos_err[1]:+.3f},{pos_err[2]:+.3f})  "
                     f"lin_vel_w=({lin_w[0]:+.3f},{lin_w[1]:+.3f},{lin_w[2]:+.3f})  "
                     f"ang_vel_b=({ang_b[0]:+.3f},{ang_b[1]:+.3f},{ang_b[2]:+.3f})  "
-                    # f"orientation=({roll:+.2f},{pitch:+.2f},{yaw:+.2f})  "
+                    f"raw_act={tuple(float(x) for x in raw_act.tolist())}  "
+                    f"omega(rad/s)={tuple(float(x) for x in omega.tolist())}  "
+                    f"rpm={tuple(float(x) for x in rpm)}  "
+                    f"Fz_sum_N={Fz_total:+.3f}  "
                     f"reward={rew[0].item():+.4f}"
                 )
 
