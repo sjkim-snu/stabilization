@@ -107,7 +107,7 @@ class CascadeControllerCfg:
 
     # Saturation limits for anti windup
     acc_limit: Tuple[float, float, float] = CONFIG["CASCADE_CONTROLLER"]["ACC_LIMIT"]
-    rate_limit: Tuple[float, float, float] = CONFIG["CASCADE_CONTROLLER"]["RATE_LIMIT"]
+    torque_limit: Tuple[float, float, float] = CONFIG["CASCADE_CONTROLLER"]["TORQUE_LIMIT"]
 
     # Integral limits for anti windup
     vel_I_clamp: Tuple[float, float, float] = CONFIG["CASCADE_CONTROLLER"]["VEL_I_CLAMP"]
@@ -148,11 +148,11 @@ class CascadeController:
 
         # Acceleration, rate limits are used for anti windup (N,3)
         self._acc_limit      = ControllerFns.to_tensor_1x(self.cfg.acc_limit,     self.dtype, self.device)
-        self._rate_limit     = ControllerFns.to_tensor_1x(self.cfg.rate_limit,    self.dtype, self.device)
+        self._torque_limit     = ControllerFns.to_tensor_1x(self.cfg.torque_limit,    self.dtype, self.device)
         
         # Initialize integral terms (N,3)
         self._vel_int        = torch.zeros((num_envs, 3), dtype=self.dtype, device=self.device)
-        self._rate_int       = torch.zeros((num_envs, 3), dtype=self.dtype, device=self.device)
+        self._ang_vel_int    = torch.zeros((num_envs, 3), dtype=self.dtype, device=self.device)
         
         # Store eps for float
         self._eps: float = float(self.cfg.eps)
@@ -260,33 +260,39 @@ class CascadeController:
         return ang_vel_sp_b  # (N, 3)
 
     def body_rate_control(self,
-                          ang_vel_b: torch.Tensor,
+                          inertia_matrix: torch.Tensor, # (N, 3)
+                          ang_vel_b: torch.Tensor,      # (N, 3)
                           ang_vel_sp_b: torch.Tensor):
         
         # Compute attitude error
         ang_vel_err = ang_vel_sp_b - ang_vel_b      # (N, 3)
-        rate_int_new = self._rate_int + ang_vel_err * self.dt
+        ang_vel_int_new = self._ang_vel_int + ang_vel_err * self.dt
 
         # Compute P, I terms
         P_term = self._rate_P * ang_vel_err
-        I_term = self._rate_I * rate_int_new
-        I_term = torch.clamp(I_term, -self._rate_I_clamp, self._rate_I_clamp)
-        rate_sp_b = P_term + I_term
+        I_term = self._rate_I * ang_vel_int_new
+        tau_sp_b = P_term + I_term
 
-        # Anti windup: only integrate if not saturated
-        rate_sp_lim_b = torch.clamp(rate_sp_b, -self._rate_limit, self._rate_limit)
-        saturation = (rate_sp_b > self._rate_limit) | (rate_sp_b < -self._rate_limit)
-        same_dir = torch.sign(ang_vel_err) == torch.sign(rate_sp_b)
-        reject = saturation & same_dir
-        self._rate_int = torch.where(reject, self._rate_int, rate_int_new)
+        # Compute gyro torque
+        gyro = torch.cross(ang_vel_b, inertia_matrix * ang_vel_b, dim=1)  # (N, 3)
+        torque_sp_b = tau_sp_b + gyro  # (N, 3)
         
+        # Anti windup: only integrate if not saturated
+        torque_sp_lim_b = torch.clamp(torque_sp_b, -self._torque_limit, self._torque_limit)
+        saturation = (torque_sp_b > self._torque_limit) | (torque_sp_b < -self._torque_limit)
+        same_dir = torch.sign(ang_vel_err) == torch.sign(torque_sp_b)
+        reject = saturation & same_dir
+        self._ang_vel_int = torch.where(reject, self._ang_vel_int, ang_vel_int_new)
+
         # Compute final output
-        I_term = self._rate_I * self._rate_int
+        I_term = self._rate_I * self._ang_vel_int
         I_term = torch.clamp(I_term, -self._rate_I_clamp, self._rate_I_clamp)
-        rate_sp_b = P_term + I_term
-        rate_sp_b = torch.clamp(rate_sp_b, -self._rate_limit, self._rate_limit)
+        tau_sp_b = P_term + I_term
+        tau_sp_b = torch.clamp(tau_sp_b, -self._torque_limit, self._torque_limit)
+        torque_sp_b = tau_sp_b + gyro
+        torque_sp_b = torch.clamp(torque_sp_b, -self._torque_limit, self._torque_limit)
 
         # Store for logging
-        self._rate_sp_b = rate_sp_b
-
-        return rate_sp_b # (N, 3)
+        self._torque_sp_b = torque_sp_b
+        
+        return torque_sp_b # (N, 3)

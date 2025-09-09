@@ -165,6 +165,13 @@ class BaseController(ActionTerm):
         mass = self._asset.root_physx_view.get_masses()
         mass = torch.as_tensor(mass, device=self._device, dtype=self._dtype).sum(dim=1, keepdim=True)
         self._mass = mass.to(device=self._device, dtype=self._dtype) # (N, 1)
+        
+        # Set inertia tensor
+        inertia = self._asset.data.default_inertia[:,0,:] # (N, 9)
+        J_diag = inertia[:, [0,4,8]] # (N, 3)
+        self._J_diag = J_diag.to(device=self._device, dtype=self._dtype)
+        
+        # Get body IDs
         ids, names = self._asset.find_bodies(".*", preserve_order=True)
         self._body_ids = [int(ids[0])]
         
@@ -207,7 +214,7 @@ class BaseController(ActionTerm):
         yaw_sp = ActionFns._quat_to_yaw(quat_w) # (N, 1)
         quat_sp_w, t_norm = self.CascadeController.acc_yaw_to_quaternion_thrust(acc_sp_w, yaw_sp)
         ang_vel_sp_b = self.CascadeController.attitude_control(quat_w, quat_sp_w)
-        momentum_sp_b = self.CascadeController.body_rate_control(ang_vel_b, ang_vel_sp_b)
+        momentum_sp_b = self.CascadeController.body_rate_control(self._J_diag, ang_vel_b, ang_vel_sp_b)
 
         # Mixing
         self._mixed_thrust = ActionFns.mix_rate_thrust_to_rotor_forces(
@@ -233,7 +240,7 @@ class BaseController(ActionTerm):
         
     def apply_actions(self):
 
-        Fz = (self._mixed_rpm ** 2 * self._k_f).sum(dim=1) # (N,)
+        Fz = (self._omega ** 2 * self._k_f).sum(dim=1) # (N,)
         self._thrust.zero_()
         self._thrust[:, 0, 2] = Fz
         

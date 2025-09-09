@@ -80,18 +80,18 @@ TERMINATION:
   ALTITUDE_THRESHOLD: 0.02  # Terminate if altitude is below (m)
 
 CASCADE_CONTROLLER:
-  POS_P: [0.01, 0.01, 0.01]        # Proportional gain for position controller
-  VEL_P: [0.02, 0.02, 0.02]        # Proportional gain for velocity controller
-  VEL_I: [0.01, 0.01, 0.01]        # Integral gain for velocity controller
+  POS_P: [0.2, 0.2, 0.2]        # Proportional gain for position controller
+  VEL_P: [0.2, 0.2, 0.2]        # Proportional gain for velocity controller
+  VEL_I: [0.1, 0.1, 0.1]        # Integral gain for velocity controller
   ATT_P: [0.01, 0.01, 0.01]  # Proportional gain for attitude controller
-  RATE_P: [0.01, 0.01, 0.03]  # Proportional gain for angular rate controller
+  RATE_P: [0.1, 0.1, 0.3]  # Proportional gain for angular rate controller
   RATE_I: [0.0, 0.0, 0.0]  # Integral gain for angular rate controller
   VEL_LIMIT: [5.0, 5.0, 5.0]      # Velocity limit (m/s)
-  ANG_VEL_LIMIT: [5.0, 5.0, 5.0]  # Angular velocity limit (rad/s)
+  ANG_VEL_LIMIT: [1.0, 1.0, 1.0]  # Angular velocity limit (rad/s)
   ACC_LIMIT: [10.0, 10.0, 10.0]  # Acceleration limit (m/s^2)
-  RATE_LIMIT: [10.0, 10.0, 10.0]  # Angular rate limit (rad/s^2)
-  VEL_I_CLAMP: [0.0, 0.0, 0.0]   # Integral windup limit for velocity controller
-  RATE_I_CLAMP: [0.0, 0.0, 0.0]  # Integral windup limit for angular rate controller
+  TORQUE_LIMIT: [1.0, 1.0, 1.0]  # Torque limit (N*m)
+  VEL_I_CLAMP: [0.1, 0.1, 0.1]   # Integral windup limit for velocity controller
+  RATE_I_CLAMP: [0.1, 0.1, 0.1]  # Integral windup limit for angular rate controller
 
 
   

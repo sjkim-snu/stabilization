@@ -43,7 +43,7 @@ class ObservationFns:
         """Get the initial spawn position of the quadrotor in the environment."""
         
         asset = env.scene[asset_cfg.name]
-        spawn_position = asset.data.default_root_state[:, 0:3]
+        spawn_position = asset.data.default_root_state[:, 0:3] + env.scene.env_origins # (N, 3)
         return spawn_position
 
     @staticmethod
