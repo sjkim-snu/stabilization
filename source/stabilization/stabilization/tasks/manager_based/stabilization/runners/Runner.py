@@ -130,6 +130,9 @@ def main():
                 # (BaseController에서 k_f는 rad/s^2 계수로 변환되어 있음)
                 kf = bc._k_f
                 Fz_total = float((omega**2 * kf).sum().item())
+                ang_sp_norm = float(bc.CascadeController._ang_vel_sp_b[0].norm().item())
+                torque_sp_norm = float(bc.CascadeController._torque_sp_b[0].norm().item())
+                J_diag = bc._J_diag[0].tolist()
 
                 # 보조 출력: 각 모터 rpm
                 rpm = (omega * (60.0 / (2.0 * math.pi))).tolist()
@@ -141,7 +144,10 @@ def main():
                     f"omega(rad/s)={tuple(float(x) for x in omega.tolist())}  "
                     f"rpm={tuple(float(x) for x in rpm)}  "
                     f"Fz_sum_N={Fz_total:+.3f}  "
-                    f"reward={rew[0].item():+.4f}"
+                    f"reward={rew[0].item():+.4f}  "
+                    f"ang_sp_norm={ang_sp_norm:.3f}  "
+                    f"torque_sp_norm={torque_sp_norm:.3f}  "
+                    f"J_diag={J_diag}"
                 )
 
             step += 1

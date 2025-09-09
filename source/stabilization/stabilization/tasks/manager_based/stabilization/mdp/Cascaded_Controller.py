@@ -289,7 +289,7 @@ class CascadeController:
         I_term = torch.clamp(I_term, -self._rate_I_clamp, self._rate_I_clamp)
         tau_sp_b = P_term + I_term
         tau_sp_b = torch.clamp(tau_sp_b, -self._torque_limit, self._torque_limit)
-        torque_sp_b = inertia_matrix * tau_sp_b + gyro
+        torque_sp_b = tau_sp_b + gyro
         torque_sp_b = torch.clamp(torque_sp_b, -self._torque_limit, self._torque_limit)
 
         # Store for logging

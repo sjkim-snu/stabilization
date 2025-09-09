@@ -140,7 +140,7 @@ class BaseController(ActionTerm):
 
         # Set conversion factors
         self._rad_to_rpm = torch.tensor(60 / (2 * math.pi), device=self._device, dtype=self._dtype)
-        self._rpm_to_rad = torch.tensor(2 * math.pi / 60, device=self._device, dtype=self._dtype)
+        self._rpm_to_rad = torch.tensor((2 * math.pi) / 60, device=self._device, dtype=self._dtype)
 
         # Convert coefficients to rad/s
         self._k_f_rpm2 = torch.tensor(cfg.k_f_rpm2, device=self._device, dtype=self._dtype)
