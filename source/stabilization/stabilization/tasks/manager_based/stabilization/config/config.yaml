@@ -50,7 +50,7 @@ EVENT:
   LIN_VEL_MAX: [0.0, 0.0, 0.0]       # Maximum linear velocity (m/s)
   ANG_VEL_MIN: [0.0, 0.0, 0.0]    # Minimum angular velocity (rad/s)
   ANG_VEL_MAX: [0.0, 0.0, 0.0]       # Maximum angular velocity (rad/s)
-  TILT_DEGREE_MAX: 5.0              # Maximum tilt angle (degrees)
+  TILT_DEGREE_MAX: 1.0              # Maximum tilt angle (degrees)
   YAW_DEGREE_RANGE: [-180.0, 180.0]  # Range of yaw angle (degrees)
   OMEGA_NORM_MAX: 1.0                # Maximum angular velocity norm (rad/s)
   
@@ -80,16 +80,16 @@ TERMINATION:
   ALTITUDE_THRESHOLD: 0.02  # Terminate if altitude is below (m)
 
 CASCADE_CONTROLLER:
-  POS_P: [2.0, 2.0, 1] # Proportional gain for position controller
+  POS_P: [5.0, 5.0, 2.0] # Proportional gain for position controller
   VEL_P: [0.9, 0.9, 1.5] # Proportional gain for velocity controller
   VEL_I: [0.35, 0.35, 0.6] # Integral gain for velocity controller
   ATT_P: [2.0, 2.0, 1.5] # Proportional gain for attitude controller
-  RATE_P: [4.0, 4.0, 2.0] # Proportional gain for angular rate controller
-  RATE_I: [2.0, 2.0, 1.0] # Integral gain for angular rate controller
+  RATE_P: [400.0, 400.0, 200.0] # Proportional gain for angular rate controller
+  RATE_I: [200.0, 200.0, 100.0] # Integral gain for angular rate controller
   VEL_LIMIT: [3.0, 3.0, 2.0] # Velocity limit (m/s)
   ANG_VEL_LIMIT: [6.0, 6.0, 4.0] # Angular velocity limit (rad/s)
   ACC_LIMIT: [8.0, 8.0, 12.0] # Acceleration limit (m/s^2)
-  TORQUE_LIMIT: [0.005, 0.005, 0.0005] # Torque limit (N*m)
+  TORQUE_LIMIT: [0.01, 0.01, 0.001] # Torque limit (N*m)
   VEL_I_CLAMP: [0.4, 0.4, 0.2] # Integral windup limit for velocity controller
   RATE_I_CLAMP: [0.2, 0.2, 0.1] # Integral windup limit for angular rate controller
 

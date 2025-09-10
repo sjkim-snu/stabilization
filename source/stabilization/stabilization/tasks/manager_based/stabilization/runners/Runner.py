@@ -133,21 +133,23 @@ def main():
                 ang_sp_norm = float(bc.CascadeController._ang_vel_sp_b[0].norm().item())
                 torque_sp_norm = float(bc.CascadeController._torque_sp_b[0].norm().item())
                 J_diag = bc._J_diag[0].tolist()
+                pos_w = bc.CascadeController._pos_w[0].tolist()
+                pos_sp_w = bc.CascadeController._pos_sp_w[0].tolist()
+                torque_sp_b = bc.CascadeController._torque_sp_b[0,:].tolist()
 
                 # 보조 출력: 각 모터 rpm
                 rpm = (omega * (60.0 / (2.0 * math.pi))).tolist()
 
                 print(
+                    f"pos_w=({pos_w[0]:+.3f},{pos_w[1]:+.3f},{pos_w[2]:+.3f})  "
                     f"lin_vel_w=({lin_w[0]:+.3f},{lin_w[1]:+.3f},{lin_w[2]:+.3f})  "
                     f"ang_vel_b=({ang_b[0]:+.3f},{ang_b[1]:+.3f},{ang_b[2]:+.3f})  "
-                    f"raw_act={tuple(float(x) for x in raw_act.tolist())}  "
                     f"omega(rad/s)={tuple(float(x) for x in omega.tolist())}  "
                     f"rpm={tuple(float(x) for x in rpm)}  "
                     f"Fz_sum_N={Fz_total:+.3f}  "
                     f"reward={rew[0].item():+.4f}  "
                     f"ang_sp_norm={ang_sp_norm:.3f}  "
-                    f"torque_sp_norm={torque_sp_norm:.3f}  "
-                    f"J_diag={J_diag}"
+                    f"torque_sp_b=[{(1e3*torque_sp_b[0]):+.3f},{(1e3*torque_sp_b[1]):+.3f},{(1e3*torque_sp_b[2]):+.3f}] mN·m"
                 )
 
             step += 1

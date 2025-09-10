@@ -164,6 +164,11 @@ class CascadeController:
         pos_err = pos_sp_w - pos_w      # (N, 3)
         vel_sp_w = self._pos_P * pos_err                      
         vel_sp_w = torch.clamp(vel_sp_w, -self._vel_limit, self._vel_limit)
+        
+        # Store for logging
+        self._pos_w = pos_w
+        self._pos_sp_w = pos_sp_w
+        
         return vel_sp_w                 # (N, 3)
     
     def velocity_control(self,
@@ -238,7 +243,7 @@ class CascadeController:
         
         # Compute Quaternion error
         quat_w_conj = quat_w * torch.tensor([1, -1, -1, -1], device=self.device, dtype=self.dtype)
-        quat_err = ControllerFns.hamilton_product(quat_sp_w, quat_w_conj)  # (N, 4)
+        quat_err = ControllerFns.hamilton_product(quat_w_conj, quat_sp_w)  # (N, 4)
 
         # Extract scalar and vector parts
         q0 = quat_err[:, 0:1]    # (N, 1)
@@ -259,40 +264,38 @@ class CascadeController:
 
         return ang_vel_sp_b  # (N, 3)
 
-    def body_rate_control(self,
-                          inertia_matrix: torch.Tensor, # (N, 3)
-                          ang_vel_b: torch.Tensor,      # (N, 3) [rad/s]
-                          ang_vel_sp_b: torch.Tensor):
+    def body_rate_control(self, inertia_diag: torch.Tensor, ang_vel_b: torch.Tensor, ang_vel_sp_b: torch.Tensor):
         
-        # Compute attitude error
-        ang_vel_err = ang_vel_sp_b - ang_vel_b      
-        ang_vel_int_new = self._ang_vel_int + ang_vel_err * self.dt
+        # error & tentative integral
+        e_w   = ang_vel_sp_b - ang_vel_b
+        i_new = self._ang_vel_int + e_w * self.dt
 
-        # Compute P, I terms
-        P_term = self._rate_P * ang_vel_err                  
-        I_term = self._rate_I * ang_vel_int_new
-        tau_sp_b = P_term + I_term
+        # P, I in "angular acceleration" [rad/s^2]
+        P = self._rate_P * e_w
+        I = self._rate_I * i_new
+        I = torch.clamp(I, -self._rate_I_clamp, self._rate_I_clamp)
 
-        # Compute gyro torque
-        gyro = torch.cross(ang_vel_b, inertia_matrix * ang_vel_b, dim=1)  # (N, 3)
-        torque_sp_b = inertia_matrix * tau_sp_b + gyro  # (N, 3)
-        
-        # Anti windup: only integrate if not saturated
-        torque_sp_lim_b = torch.clamp(torque_sp_b, -self._torque_limit, self._torque_limit)
-        saturation = (torque_sp_b > self._torque_limit) | (torque_sp_b < -self._torque_limit)
-        same_dir = torch.sign(ang_vel_err) == torch.sign(torque_sp_b)
-        reject = saturation & same_dir
-        self._ang_vel_int = torch.where(reject, self._ang_vel_int, ang_vel_int_new)
+        # 자이로 前 "조종자 토크"로 포화 판정: tau_cmd = J * (P+I)
+        tau_cmd = inertia_diag * (P + I)                               # [N·m]
+        tau_lim = torch.clamp(tau_cmd, -self._torque_limit, self._torque_limit)
 
-        # Compute final output
-        I_term = self._rate_I * self._ang_vel_int
-        I_term = torch.clamp(I_term, -self._rate_I_clamp, self._rate_I_clamp)
-        tau_sp_b = P_term + I_term
-        tau_sp_b = torch.clamp(tau_sp_b, -self._torque_limit, self._torque_limit)
-        torque_sp_b = tau_sp_b + gyro
-        torque_sp_b = torch.clamp(torque_sp_b, -self._torque_limit, self._torque_limit)
+        sat   = (tau_cmd.abs() > self._torque_limit)
+        same  = torch.sign(e_w) == torch.sign(tau_cmd)                 # 오차와 같은 방향?
+        block = sat & same
+        self._ang_vel_int = torch.where(block, self._ang_vel_int, i_new)
 
-        # Store for logging
-        self._torque_sp_b = torque_sp_b
-        
-        return torque_sp_b # (N, 3)
+        # 적분 확정 후 재계산
+        I = self._rate_I * self._ang_vel_int
+        I = torch.clamp(I, -self._rate_I_clamp, self._rate_I_clamp)
+        tau_cmd = inertia_diag * (P + I)
+        tau_cmd = torch.clamp(tau_cmd, -self._torque_limit, self._torque_limit)
+
+        # 최종 모터 토크: gyro 추가
+        gyro = torch.cross(ang_vel_b, inertia_diag * ang_vel_b, dim=1)
+        torque_sp_b = torch.clamp(tau_cmd + gyro, -self._torque_limit, self._torque_limit)
+
+        # 디버그 보관
+        self._tau_cmd_b   = tau_cmd         # 자이로 전
+        self._torque_sp_b = torque_sp_b     # 최종
+
+        return torque_sp_b

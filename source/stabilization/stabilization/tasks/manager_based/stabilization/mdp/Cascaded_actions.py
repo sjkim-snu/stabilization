@@ -55,10 +55,179 @@ class ActionFns:
 
         # Compute rotor forces
         rotor_forces = torch.matmul(T, Minv.T) # (N, 4)
-        rotor_forces = torch.clamp(rotor_forces, min=0.0) # (N, 4)
         
         return rotor_forces
     
+    @staticmethod
+    def desaturate_rotor_forces(
+        rotor_forces: torch.Tensor,  # (N,4), 믹서 결과 (음수 force 가능)
+        k_f_rpm2: torch.Tensor,      # (1,), F = k_f_rpm2 * (rpm)^2
+        w_min_rpm: float,
+        w_max_rpm: float,
+        ) -> torch.Tensor:
+        """
+        Pairwise thrust-preserving desaturation (single function, no helpers).
+        - Pairs: (0,2), (1,3)
+        - Preserve signed thrust sum per pair: S = s1*w1^2 + s2*w2^2,  (si=sign of rpm)
+        - Steps 1~6: 한쪽/양쪽 포화 경우의 수에 따라 clamp 및 보정.
+        """
+        device = rotor_forces.device
+        dtype = rotor_forces.dtype
+
+        # 준비: rpm (부호 포함) 추정
+        kf = k_f_rpm2.view(1, 1).to(device=device, dtype=dtype)      # (1,1)
+        rpm2_signed = rotor_forces / kf                               # (N,4)  (부호 포함 rpm^2)
+        rpm_abs = torch.sqrt(torch.clamp(torch.abs(rpm2_signed), min=0.0))  # (N,4)
+        rpm_sign = torch.sign(rpm2_signed)                            # (N,4) in {-1,0,1}
+        rpm_cmd = rpm_sign * rpm_abs                                  # (N,4) 부호 포함 rpm
+
+        wmin = torch.tensor(float(w_min_rpm), device=device, dtype=dtype)
+        wmax = torch.tensor(float(w_max_rpm), device=device, dtype=dtype)
+        wmin2 = wmin * wmin
+        wmax2 = wmax * wmax
+
+        rpm_out = rpm_cmd.clone()
+
+        # --- 페어 1: (0,2) ---
+        i, j = 0, 2
+        wi = rpm_out[:, i]
+        wj = rpm_out[:, j]
+
+        # 2) 각 페어의 "부호 포함" 추력합 S 저장: S = sign(wi)*wi^2 + sign(wj)*wj^2
+        Si = torch.sign(wi) * wi * wi + torch.sign(wj) * wj * wj  # (N,)
+
+        # 3) 범위 체크 (음수 rpm은 자동으로 하한 미만으로 취급)
+        in_i = (wi >= wmin) & (wi <= wmax)
+        in_j = (wj >= wmin) & (wj <= wmax)
+
+        # 4) 둘 다 범위 내 → 그대로
+        keep_mask = in_i & in_j
+
+        # 5) 하나만 범위 밖
+        only_i_out = (~in_i) & in_j
+        only_j_out = in_i & (~in_j)
+
+        # i만 out → i를 clamp, j는 S 보존하도록 재계산
+        wi_clamped = torch.where(wi < wmin, wmin, torch.where(wi > wmax, wmax, wi))
+        wj2_target = Si - wi_clamped * wi_clamped
+        wj_new = torch.sqrt(torch.clamp(wj2_target, min=wmin2, max=wmax2))
+        rpm_out[:, i] = torch.where(only_i_out, wi_clamped, rpm_out[:, i])
+        rpm_out[:, j] = torch.where(only_i_out, wj_new,     rpm_out[:, j])
+
+        # j만 out → j를 clamp, i는 S 보존하도록 재계산
+        wj_clamped = torch.where(wj < wmin, wmin, torch.where(wj > wmax, wmax, wj))
+        wi2_target = Si - wj_clamped * wj_clamped
+        wi_new = torch.sqrt(torch.clamp(wi2_target, min=wmin2, max=wmax2))
+        rpm_out[:, j] = torch.where(only_j_out, wj_clamped, rpm_out[:, j])
+        rpm_out[:, i] = torch.where(only_j_out, wi_new,     rpm_out[:, i])
+
+        # 6) 둘 다 범위 밖
+        both_out = (~in_i) & (~in_j)
+        if both_out.any():
+            # 분기 A: 한쪽은 상한 초과, 다른쪽은 하한 미만 → "상한 초과 쪽 먼저" (질문 예시와 동일)
+            over_i_under_j = (wi > wmax) & (wj < wmin)
+            over_j_under_i = (wj > wmax) & (wi < wmin)
+            # A-1) i>max, j<min
+            wi_first = torch.clamp(wi, max=wmax)
+            wj2_t   = Si - wi_first * wi_first
+            wj_first = torch.sqrt(torch.clamp(wj2_t, min=wmin2, max=wmax2))
+            rpm_out[:, i] = torch.where(both_out & over_i_under_j, wi_first, rpm_out[:, i])
+            rpm_out[:, j] = torch.where(both_out & over_i_under_j, wj_first, rpm_out[:, j])
+            # A-2) j>max, i<min
+            wj_first = torch.clamp(wj, max=wmax)
+            wi2_t   = Si - wj_first * wj_first
+            wi_first = torch.sqrt(torch.clamp(wi2_t, min=wmin2, max=wmax2))
+            rpm_out[:, j] = torch.where(both_out & over_j_under_i, wj_first, rpm_out[:, j])
+            rpm_out[:, i] = torch.where(both_out & over_j_under_i, wi_first, rpm_out[:, i])
+
+            # 분기 B: 그 외(둘 다 상한 초과, 둘 다 하한 미만, 혹은 같은 방향 초과)
+            remains = both_out & (~over_i_under_j) & (~over_j_under_i)
+            if remains.any():
+                # "경계에서 더 멀리" 떨어진 쪽 먼저
+                dist_i = torch.where(wi > wmax, wi - wmax, torch.where(wi < wmin, wmin - wi, torch.zeros_like(wi)))
+                dist_j = torch.where(wj > wmax, wj - wmax, torch.where(wj < wmin, wmin - wj, torch.zeros_like(wj)))
+                choose_i = dist_i >= dist_j  # i 먼저 clamp할지 여부
+
+                # i 먼저 clamp
+                wi_c = torch.where(wi > wmax, wmax, torch.where(wi < wmin, wmin, wi))
+                wj2  = Si - wi_c * wi_c
+                wj_c = torch.sqrt(torch.clamp(wj2, min=wmin2, max=wmax2))
+                rpm_out[:, i] = torch.where(remains & choose_i, wi_c, rpm_out[:, i])
+                rpm_out[:, j] = torch.where(remains & choose_i, wj_c, rpm_out[:, j])
+
+                # j 먼저 clamp
+                wj_c = torch.where(wj > wmax, wmax, torch.where(wj < wmin, wmin, wj))
+                wi2  = Si - wj_c * wj_c
+                wi_c = torch.sqrt(torch.clamp(wi2, min=wmin2, max=wmax2))
+                rpm_out[:, j] = torch.where(remains & (~choose_i), wj_c, rpm_out[:, j])
+                rpm_out[:, i] = torch.where(remains & (~choose_i), wi_c, rpm_out[:, i])
+
+        # --- 페어 2: (1,3) --- (동일 로직 복제)
+        i, j = 1, 3
+        wi = rpm_out[:, i]
+        wj = rpm_out[:, j]
+        Si = torch.sign(wi) * wi * wi + torch.sign(wj) * wj * wj
+
+        in_i = (wi >= wmin) & (wi <= wmax)
+        in_j = (wj >= wmin) & (wj <= wmax)
+
+        keep_mask = in_i & in_j
+
+        only_i_out = (~in_i) & in_j
+        only_j_out = in_i & (~in_j)
+
+        wi_clamped = torch.where(wi < wmin, wmin, torch.where(wi > wmax, wmax, wi))
+        wj2_target = Si - wi_clamped * wi_clamped
+        wj_new = torch.sqrt(torch.clamp(wj2_target, min=wmin2, max=wmax2))
+        rpm_out[:, i] = torch.where(only_i_out, wi_clamped, rpm_out[:, i])
+        rpm_out[:, j] = torch.where(only_i_out, wj_new,     rpm_out[:, j])
+
+        wj_clamped = torch.where(wj < wmin, wmin, torch.where(wj > wmax, wmax, wj))
+        wi2_target = Si - wj_clamped * wj_clamped
+        wi_new = torch.sqrt(torch.clamp(wi2_target, min=wmin2, max=wmax2))
+        rpm_out[:, j] = torch.where(only_j_out, wj_clamped, rpm_out[:, j])
+        rpm_out[:, i] = torch.where(only_j_out, wi_new,     rpm_out[:, i])
+
+        both_out = (~in_i) & (~in_j)
+        if both_out.any():
+            over_i_under_j = (wi > wmax) & (wj < wmin)
+            over_j_under_i = (wj > wmax) & (wi < wmin)
+
+            wi_first = torch.clamp(wi, max=wmax)
+            wj2_t   = Si - wi_first * wi_first
+            wj_first = torch.sqrt(torch.clamp(wj2_t, min=wmin2, max=wmax2))
+            rpm_out[:, i] = torch.where(both_out & over_i_under_j, wi_first, rpm_out[:, i])
+            rpm_out[:, j] = torch.where(both_out & over_i_under_j, wj_first, rpm_out[:, j])
+
+            wj_first = torch.clamp(wj, max=wmax)
+            wi2_t   = Si - wj_first * wj_first
+            wi_first = torch.sqrt(torch.clamp(wi2_t, min=wmin2, max=wmax2))
+            rpm_out[:, j] = torch.where(both_out & over_j_under_i, wj_first, rpm_out[:, j])
+            rpm_out[:, i] = torch.where(both_out & over_j_under_i, wi_first, rpm_out[:, i])
+
+            remains = both_out & (~over_i_under_j) & (~over_j_under_i)
+            if remains.any():
+                dist_i = torch.where(wi > wmax, wi - wmax, torch.where(wi < wmin, wmin - wi, torch.zeros_like(wi)))
+                dist_j = torch.where(wj > wmax, wj - wmax, torch.where(wj < wmin, wmin - wj, torch.zeros_like(wj)))
+                choose_i = dist_i >= dist_j
+
+                wi_c = torch.where(wi > wmax, wmax, torch.where(wi < wmin, wmin, wi))
+                wj2  = Si - wi_c * wi_c
+                wj_c = torch.sqrt(torch.clamp(wj2, min=wmin2, max=wmax2))
+                rpm_out[:, i] = torch.where(remains & choose_i, wi_c, rpm_out[:, i])
+                rpm_out[:, j] = torch.where(remains & choose_i, wj_c, rpm_out[:, j])
+
+                wj_c = torch.where(wj > wmax, wmax, torch.where(wj < wmin, wmin, wj))
+                wi2  = Si - wj_c * wj_c
+                wi_c = torch.sqrt(torch.clamp(wi2, min=wmin2, max=wmax2))
+                rpm_out[:, j] = torch.where(remains & (~choose_i), wj_c, rpm_out[:, j])
+                rpm_out[:, i] = torch.where(remains & (~choose_i), wi_c, rpm_out[:, i])
+
+        # 최종: force로 환산 (항상 양의 추력, 수치 안전을 위해 clamp)
+        rotor_forces_out = torch.clamp((rpm_out * rpm_out) * kf, min=0.0)
+        return rotor_forces_out
+        
+        
     @staticmethod
     def thrust_to_rpm(
         rotor_forces: torch.Tensor, # (N, 4)
@@ -113,15 +282,15 @@ class BaseControllerCfg(ActionTermCfg):
     k_f_rpm2: float = 2.44e-10
     k_m_rpm2: float = 1.24e-12
     
-    w_min_rpm: float = 0.0
+    w_min_rpm: float = 10000.0
     w_max_rpm: float = 25000.0
     
     rotor_dirs: list[float] = [1.0, -1.0, 1.0, -1.0] # CW: +1, CCW: -1
     rotor_xy_normalized: list[list[float]] = [ 
         [+1.0, +1.0],  # Front right
-        [-1.0, +1.0],  # Front left
+        [+1.0, -1.0],  # Front left
         [-1.0, -1.0],  # Back left
-        [+1.0, -1.0]]  # Back right 
+        [-1.0, +1.0]]  # Back right
 
 class BaseController(ActionTerm):
     
@@ -227,8 +396,15 @@ class BaseController(ActionTerm):
             mass = self._mass
         ) # (N, 4)
         
-        self._mixed_rpm = ActionFns.thrust_to_rpm(
+        self._mixed_thrust_desaturated = ActionFns.desaturate_rotor_forces(
             rotor_forces = self._mixed_thrust,
+            k_f_rpm2 = self._k_f_rpm2,
+            w_min_rpm = self._w_min_rpm,
+            w_max_rpm = self._w_max_rpm,
+        ) # (N, 4)
+        
+        self._mixed_rpm = ActionFns.thrust_to_rpm(
+            rotor_forces = self._mixed_thrust_desaturated,
             w_min_rpm = self._w_min_rpm,
             w_max_rpm = self._w_max_rpm,
             k_f = self._k_f,
@@ -246,9 +422,9 @@ class BaseController(ActionTerm):
         
         x = self._rotor_xy[:, 0]
         y = self._rotor_xy[:, 1]
-        tau_x = (y * self._mixed_thrust).sum(dim=1) # (N,)
-        tau_y = (-x * self._mixed_thrust).sum(dim=1) # (N,)
-        tau_z = (self._rotor_dirs * self._k_m / self._k_f * self._mixed_thrust).sum(dim=1) # (N,)
+        tau_x = (y * self._mixed_thrust_desaturated).sum(dim=1) # (N,)
+        tau_y = (-x * self._mixed_thrust_desaturated).sum(dim=1) # (N,)
+        tau_z = (self._rotor_dirs * self._k_m / self._k_f * self._mixed_thrust_desaturated).sum(dim=1) # (N,)
         self._moment.zero_()
         self._moment[:, 0, 0] = tau_x
         self._moment[:, 0, 1] = tau_y
