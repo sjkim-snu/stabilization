@@ -82,7 +82,7 @@ TERMINATION:
 CASCADE_CONTROLLER: 
   POS_P: [1.21, 1.21, 1.21] # Proportional gain for position controller
   POS_SLEW_MAX: 10.0     # Maximum slew rate for position controller (m)
-  VEL_P: [2.5, 2.5, 2.3] # Proportional gain for velocity controller 
+  VEL_P: [2.3, 2.3, 2.3] # Proportional gain for velocity controller 
   VEL_I: [0.02, 0.02, 0.2] # Integral gain for velocity controller 
   ATT_P: [3.85, 3.85, 1.5] # Proportional gain for attitude controller 
   TILT_MAX: [20.0] # Maximum tilt angle (degrees) 
