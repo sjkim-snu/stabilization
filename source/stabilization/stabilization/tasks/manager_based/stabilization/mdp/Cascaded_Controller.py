@@ -96,6 +96,7 @@ class CascadeControllerCfg:
 
     # Attitude controller gains
     att_P: Tuple[float, float, float] = CONFIG["CASCADE_CONTROLLER"]["ATT_P"]
+    tilt_max: Tuple[float] = CONFIG["CASCADE_CONTROLLER"]["TILT_MAX"]
 
     # Body rate controller gains
     rate_P: Tuple[float, float, float] = CONFIG["CASCADE_CONTROLLER"]["RATE_P"]
@@ -138,9 +139,9 @@ class CascadeController:
         self._att_P          = ControllerFns.to_tensor_1x(self.cfg.att_P,         self.dtype, self.device)
         self._rate_P         = ControllerFns.to_tensor_1x(self.cfg.rate_P,        self.dtype, self.device)
         self._rate_I         = ControllerFns.to_tensor_1x(self.cfg.rate_I,        self.dtype, self.device)
-
+        self._tilt_max       = ControllerFns.to_tensor_1x(self.cfg.tilt_max,      self.dtype, self.device)
         self._vel_limit      = ControllerFns.to_tensor_1x(self.cfg.vel_limit,     self.dtype, self.device)
-        self._ang_vel_limit      = ControllerFns.to_tensor_1x(self.cfg.ang_vel_limit,     self.dtype, self.device)
+        self._ang_vel_limit  = ControllerFns.to_tensor_1x(self.cfg.ang_vel_limit, self.dtype, self.device)
 
         # Integral term limits for anti windup (N,3)
         self._vel_I_clamp    = ControllerFns.to_tensor_1x(self.cfg.vel_I_clamp,   self.dtype, self.device)
@@ -201,40 +202,75 @@ class CascadeController:
         
         return acc_sp_w      # (N, 3)
         
-    def acc_yaw_to_quaternion_thrust(self,
-                                   acc_sp_w: torch.Tensor,
-                                   yaw_sp: torch.Tensor):
-        
-        # Get gravity vector of N entities, default is [0,0,-9.81]
-        g = ControllerFns.to_tensor_Nx([0, 0, -9.81], self.num_envs ,self.dtype, self.device) # (N, 3)
-        
-        # Compute thrust vector and b3 axis
-        thrust_w = acc_sp_w - g                                                # (N, 3)
-        t_norm = torch.norm(thrust_w, dim=1, keepdim=True).clamp_min(float(self._eps))
-        b3 = thrust_w / t_norm                                                 # (N, 3)
+    def acc_yaw_to_quaternion_thrust(
+        self,
+        acc_sp_w: torch.Tensor,   # (N, 3)
+        yaw_sp: torch.Tensor,     # (N,) or (N,1)
+    ):
+        # 0) 준비
+        N = self.num_envs
+        device, dtype, eps = self.device, self.dtype, self._eps
+        tilt_max = torch.deg2rad(self._tilt_max).expand(N,1) # (N,1)
 
-        # Compute desired heading from yaw setpoint
+        # 1) 중력 제거한 추력 벡터와 b3
+        g = ControllerFns.to_tensor_Nx([0.0, 0.0, -9.81], N, dtype, device)  # (N,3)
+        thrust_w_raw = acc_sp_w - g                                          # (N,3)
+        t_norm_raw = torch.norm(thrust_w_raw, dim=1, keepdim=True).clamp_min(float(eps))
+        b3_raw = thrust_w_raw / t_norm_raw                                   # (N,3)
+
+        # 2) tilt limiter: sin(theta)=|b3_xy|, sin(theta)_max=sin(tilt_max)
+        c = b3_raw[:, 2:3].clamp(-1.0, 1.0)                                  # cos(theta)=b3_z
+        s = torch.sqrt((1.0 - c * c).clamp_min(eps))                         # sin(theta)=|b3_xy|
+        s_max = torch.sin(tilt_max).clamp_min(0.0).clamp_max(1.0)            # (N,1)
+
+        scale_xy = torch.minimum(torch.ones_like(s), s_max / (s + eps))      # <=1
+        over = s > (s_max + 1e-6)
+
+        b3_xy_lim = b3_raw[:, 0:2] * torch.where(over, scale_xy, torch.ones_like(scale_xy))
+        b3_z_lim  = torch.sqrt((1.0 - (b3_xy_lim ** 2).sum(dim=1, keepdim=True)).clamp_min(eps))
+        b3 = torch.cat([b3_xy_lim, b3_z_lim], dim=1)                         # (N,3), |b3|=1
+
+        # 3) "수직 성분 보존" 방식으로 크기 재설정
+        #    - 원래 수직 성분 Tz_raw = thrust_w_raw_z 를 유지하도록 t_norm를 재계산
+        #    - 이렇게 하면 틸트 제한으로도 고도 유지가 흔들리지 않습니다.
+        Tz_raw = thrust_w_raw[:, 2:3]                                        # (N,1)
+        t_norm = (Tz_raw / b3[:, 2:3]).clamp_min(float(eps))                  # (N,1)
+        thrust_w = b3 * t_norm                                               # (N,3)
+
+        # 4) yaw heading -> b1_ref
         if yaw_sp.ndim == 2 and yaw_sp.shape[1] == 1:
-            yaw_sp = yaw_sp.squeeze(-1)  # (N,)
-        c_yaw = torch.cos(yaw_sp)                                              # (N,)
-        s_yaw = torch.sin(yaw_sp)                                              # (N,)
-        b1_ref = torch.stack([c_yaw, s_yaw, torch.zeros_like(c_yaw)], dim=1)   # (N, 3)
-        
-        # Compute b2, b1 axes
-        b2 = torch.cross(b3, b1_ref, dim=1)                                    # (N, 3)
-        b2 = torch.nn.functional.normalize(b2, dim=1, eps=self.cfg.eps)        # (N, 3)
-        b1 = torch.cross(b2, b3, dim=1)                                        # (N, 3)
-        
-        # Compute rotation matrix and quaternion
-        R = torch.stack([b1, b2, b3], dim=2)                                   # (N, 3, 3)
-        quat_sp_w = ControllerFns.matrix_to_quaternion(R, self.cfg.eps)        # (N, 4)
-        
-        # Store for logging 
-        self._thrust_w = thrust_w
-        self._thrust_norm = t_norm
-        self._quat_sp_w = quat_sp_w
+            yaw_sp = yaw_sp.squeeze(-1)                                      # (N,)
+        c_yaw = torch.cos(yaw_sp)                                            # (N,)
+        s_yaw = torch.sin(yaw_sp)                                            # (N,)
+        b1_ref = torch.stack([c_yaw, s_yaw, torch.zeros_like(c_yaw)], dim=1) # (N,3)
 
-        return quat_sp_w, t_norm  # (N, 4), (N, 1)
+        # 5) b2, b1 구성 (특이점 안전 처리)
+        b2 = torch.cross(b3, b1_ref, dim=1)                                  # (N,3)
+        b2_norm = torch.norm(b2, dim=1, keepdim=True)
+        near_sing = b2_norm < 1e-6
+        # 특이점일 때는 임의 직교축으로 재계산 (x축, 실패시 y축)
+        if near_sing.any():
+            ez = torch.tensor([0.0, 0.0, 1.0], device=device, dtype=dtype).view(1,3).expand(N,3)
+            bx = torch.tensor([1.0, 0.0, 0.0], device=device, dtype=dtype).view(1,3).expand(N,3)
+            by = torch.tensor([0.0, 1.0, 0.0], device=device, dtype=dtype).view(1,3).expand(N,3)
+            b2_alt = torch.cross(b3, bx, dim=1)
+            use_by = (torch.norm(b2_alt, dim=1, keepdim=True) < 1e-6)
+            b2_alt = torch.where(use_by, torch.cross(b3, by, dim=1), b2_alt)
+            b2 = torch.where(near_sing, b2_alt, b2)
+
+        b2 = torch.nn.functional.normalize(b2, dim=1, eps=eps)               # (N,3)
+        b1 = torch.cross(b2, b3, dim=1)                                      # (N,3)
+
+        # 6) 회전행렬/쿼터니언
+        R = torch.stack([b1, b2, b3], dim=2)                                 # (N,3,3)
+        quat_sp_w = ControllerFns.matrix_to_quaternion(R, eps)               # (N,4)
+
+        # 7) 로깅
+        self._thrust_w   = thrust_w
+        self._thrust_norm= t_norm
+        self._quat_sp_w  = quat_sp_w
+
+        return quat_sp_w, t_norm
 
 
     def attitude_control(self,

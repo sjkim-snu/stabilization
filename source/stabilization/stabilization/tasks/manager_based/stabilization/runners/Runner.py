@@ -12,6 +12,7 @@ from isaaclab.envs import ManagerBasedRLEnv, ManagerBasedRLEnvCfg
 from isaaclab.utils import configclass
 from isaaclab.managers import SceneEntityCfg
 from stabilization.tasks.manager_based.stabilization.config import load_parameters
+import isaaclab.utils.math as math_utils
 
 import stabilization.tasks.manager_based.stabilization.envs as envs
 import stabilization.tasks.manager_based.stabilization.mdp as mdp
@@ -119,6 +120,11 @@ def main():
                 # 관측값
                 lin_w = mdp.ObservationFns.get_lin_vel_w(env, asset)[0]
                 ang_b = mdp.ObservationFns.get_ang_vel_b(env, asset)[0]
+                RAD2DEG = 180.0 / math.pi
+                att_q_all = mdp.ObservationFns.get_quaternion_w(env, asset)  # (N, 4)
+                roll, pitch, yaw = math_utils.euler_xyz_from_quat(att_q_all)  # each (N,)
+                att_deg_all = torch.stack((roll, pitch, yaw), dim=1) * RAD2DEG  # (N, 3)
+                r0, p0, y0 = att_deg_all[0].tolist()  # (3,) -> 파이썬 float 3개
 
                 # 액션/추력 디버깅
                 bc = env.action_manager.get_term("base_controller")  # name은 ActionsCfg의 필드명과 동일
@@ -144,8 +150,8 @@ def main():
                     f"pos_w=({pos_w[0]:+.3f},{pos_w[1]:+.3f},{pos_w[2]:+.3f})  "
                     f"lin_vel_w=({lin_w[0]:+.3f},{lin_w[1]:+.3f},{lin_w[2]:+.3f})  "
                     f"ang_vel_b=({ang_b[0]:+.3f},{ang_b[1]:+.3f},{ang_b[2]:+.3f})  "
-                    f"omega(rad/s)={tuple(float(x) for x in omega.tolist())}  "
                     f"rpm={tuple(float(x) for x in rpm)}  "
+                    f"att_deg=({r0:+.1f},{p0:+.1f},{y0:+.1f})   "
                     f"Fz_sum_N={Fz_total:+.3f}  "
                     f"reward={rew[0].item():+.4f}  "
                     f"ang_sp_norm={ang_sp_norm:.3f}  "

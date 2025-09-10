@@ -84,6 +84,7 @@ CASCADE_CONTROLLER:
   VEL_P: [0.9, 0.9, 1.5] # Proportional gain for velocity controller
   VEL_I: [0.35, 0.35, 0.6] # Integral gain for velocity controller
   ATT_P: [2.0, 2.0, 1.5] # Proportional gain for attitude controller
+  TILT_MAX: [10.0] # Maximum tilt angle (degrees)
   RATE_P: [400.0, 400.0, 200.0] # Proportional gain for angular rate controller
   RATE_I: [200.0, 200.0, 100.0] # Integral gain for angular rate controller
   VEL_LIMIT: [3.0, 3.0, 2.0] # Velocity limit (m/s)
