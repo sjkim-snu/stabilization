@@ -282,7 +282,7 @@ class BaseControllerCfg(ActionTermCfg):
     k_f_rpm2: float = 2.44e-10
     k_m_rpm2: float = 1.24e-12
     
-    w_min_rpm: float = 10000.0
+    w_min_rpm: float = 5000.0
     w_max_rpm: float = 25000.0
     
     rotor_dirs: list[float] = [1.0, -1.0, 1.0, -1.0] # CW: +1, CCW: -1
@@ -380,7 +380,8 @@ class BaseController(ActionTerm):
         # Cascaded control
         vel_sp_w = self.CascadeController.position_control(pos_w, pos_sp_w)
         acc_sp_w = self.CascadeController.velocity_control(vel_w, vel_sp_w)
-        yaw_sp = ActionFns._quat_to_yaw(quat_w) # (N, 1)
+        yaw_sp = torch.zeros_like(acc_sp_w[:, :1])  # (N, 1)
+        # yaw_sp = ActionFns._quat_to_yaw(quat_w) # (N, 1) hold inital yaw
         quat_sp_w, t_norm = self.CascadeController.acc_yaw_to_quaternion_thrust(acc_sp_w, yaw_sp)
         ang_vel_sp_b = self.CascadeController.attitude_control(quat_w, quat_sp_w)
         momentum_sp_b = self.CascadeController.body_rate_control(self._J_diag, ang_vel_b, ang_vel_sp_b)

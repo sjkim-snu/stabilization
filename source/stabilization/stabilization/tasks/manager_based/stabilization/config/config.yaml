@@ -28,7 +28,7 @@ LAUNCHER:
 # ─────────────────────────────────────────────────────────────────────────────────────
 
 SCENE:
-  NUM_ENVS: 1              # Number of parallel environments
+  NUM_ENVS: 20              # Number of parallel environments
   ENV_SPACING: 0.5          # Spacing between environments (m)
   CLONE_IN_FABRIC: true     # If true, entities are cloned in fabric for better performance
   FILTER_COLLISIONS: true   # If true, collisions will not occur between cloned entities
@@ -46,11 +46,11 @@ ENV:
 # ─────────────────────────────────────────────────────────────────────────────────────
 
 EVENT:
-  LIN_VEL_MIN: [0.0, 0.0, 0.0]    # Minimum linear velocity (m/s)
-  LIN_VEL_MAX: [0.0, 0.0, 0.0]       # Maximum linear velocity (m/s)
-  ANG_VEL_MIN: [0.0, 0.0, 0.0]    # Minimum angular velocity (rad/s)
-  ANG_VEL_MAX: [0.0, 0.0, 0.0]       # Maximum angular velocity (rad/s)
-  TILT_DEGREE_MAX: 1.0              # Maximum tilt angle (degrees)
+  LIN_VEL_MIN: [-2.0, -2.0, -2.0]    # Minimum linear velocity (m/s)
+  LIN_VEL_MAX: [2.0, 2.0, 2.0]       # Maximum linear velocity (m/s)
+  ANG_VEL_MIN: [-0.5, -0.5, -0.5]    # Minimum angular velocity (rad/s)
+  ANG_VEL_MAX: [0.5, 0.5, 0.5]       # Maximum angular velocity (rad/s)
+  TILT_DEGREE_MAX: 15.0              # Maximum tilt angle (degrees)
   YAW_DEGREE_RANGE: [-180.0, 180.0]  # Range of yaw angle (degrees)
   OMEGA_NORM_MAX: 1.0                # Maximum angular velocity norm (rad/s)
   
@@ -80,16 +80,16 @@ TERMINATION:
   ALTITUDE_THRESHOLD: 0.02  # Terminate if altitude is below (m)
 
 CASCADE_CONTROLLER:
-  POS_P: [5.0, 5.0, 2.0] # Proportional gain for position controller
-  VEL_P: [0.9, 0.9, 1.5] # Proportional gain for velocity controller
-  VEL_I: [0.35, 0.35, 0.6] # Integral gain for velocity controller
-  ATT_P: [2.0, 2.0, 1.5] # Proportional gain for attitude controller
-  TILT_MAX: [10.0] # Maximum tilt angle (degrees)
-  RATE_P: [400.0, 400.0, 200.0] # Proportional gain for angular rate controller
-  RATE_I: [200.0, 200.0, 100.0] # Integral gain for angular rate controller
-  VEL_LIMIT: [3.0, 3.0, 2.0] # Velocity limit (m/s)
-  ANG_VEL_LIMIT: [6.0, 6.0, 4.0] # Angular velocity limit (rad/s)
-  ACC_LIMIT: [8.0, 8.0, 12.0] # Acceleration limit (m/s^2)
+  POS_P: [1.2, 1.2, 1.5] # Proportional gain for position controller
+  VEL_P: [1.8, 1.8, 2.2] # Proportional gain for velocity controller
+  VEL_I: [0.12, 0.12, 0.35] # Integral gain for velocity controller
+  ATT_P: [3.5, 3.5, 1.5] # Proportional gain for attitude controller
+  TILT_MAX: [20.0] # Maximum tilt angle (degrees)
+  RATE_P: [7.0, 7.0, 2.0] # Proportional gain for angular rate controller
+  RATE_I: [0.0, 0.0, 0.0] # Integral gain for angular rate controller
+  VEL_LIMIT: [2.5, 2.5, 0.6] # Velocity limit (m/s)
+  ANG_VEL_LIMIT: [4.0, 4.0, 1.0] # Angular velocity limit (rad/s)
+  ACC_LIMIT: [6.0, 6.0, 8.0] # Acceleration limit (m/s^2)
   TORQUE_LIMIT: [0.01, 0.01, 0.001] # Torque limit (N*m)
   VEL_I_CLAMP: [0.4, 0.4, 0.2] # Integral windup limit for velocity controller
   RATE_I_CLAMP: [0.2, 0.2, 0.1] # Integral windup limit for angular rate controller
