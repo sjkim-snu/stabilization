@@ -46,8 +46,8 @@ ENV:
 # ─────────────────────────────────────────────────────────────────────────────────────
 
 EVENT:
-  LIN_VEL_MIN: [-0.7, -0.7, 0.0]    # Minimum linear velocity (m/s)
-  LIN_VEL_MAX: [0.7, 0.7, 1.0]       # Maximum linear velocity (m/s)
+  LIN_VEL_MIN: [-1.5, -1.5, 0.0]    # Minimum linear velocity (m/s)
+  LIN_VEL_MAX: [1.5, 1.5, 1.5]       # Maximum linear velocity (m/s)
   ANG_VEL_MIN: [-1.0, -1.0, -1.0]    # Minimum angular velocity (rad/s)
   ANG_VEL_MAX: [1.0, 1.0, 1.0]       # Maximum angular velocity (rad/s)
   TILT_DEGREE_MAX: 10.0              # Maximum tilt angle (degrees)
@@ -80,10 +80,10 @@ TERMINATION:
   ALTITUDE_THRESHOLD: 0.02  # Terminate if altitude is below (m)
 
 CASCADE_CONTROLLER: 
-  POS_P: [1.21, 1.21, 1.6] # Proportional gain for position controller
+  POS_P: [1.21, 1.21, 1.21] # Proportional gain for position controller
   POS_SLEW_MAX: 10.0     # Maximum slew rate for position controller (m)
   VEL_P: [2.5, 2.5, 2.3] # Proportional gain for velocity controller 
-  VEL_I: [0.02, 0.02, 0.32] # Integral gain for velocity controller 
+  VEL_I: [0.02, 0.02, 0.2] # Integral gain for velocity controller 
   ATT_P: [3.85, 3.85, 1.5] # Proportional gain for attitude controller 
   TILT_MAX: [20.0] # Maximum tilt angle (degrees) 
   RATE_P: [10.3, 10.3, 3.0] # Proportional gain for angular rate controller 
