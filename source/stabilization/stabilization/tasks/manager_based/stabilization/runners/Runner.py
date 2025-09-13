@@ -70,6 +70,7 @@ def main():
     cfg=Logger.CSVLoggerCfg(
         device=CONFIG["LAUNCHER"]["DEVICE"],
         policy_dt_s=CONFIG["ENV"]["PHYSICS_DT"] * CONFIG["ENV"]["DECIMATION"],
+        flush_every_rows=1,  # ← (수정 1) 종료마다 즉시 기록
         ),
     )
 
@@ -111,29 +112,29 @@ def main():
             csv_logger.log_step(
                 rewards=rew,
                 dones=dones,
-                rew_terms_step=info.get("rew_terms", None),
+                rew_terms_step=env.extras.get("rew_terms", None),  # ← (수정 2) env.extras에서 직접 가져오기
                 term_mgr=getattr(env, "termination_manager", None),
                 actions=actions, 
             )
 
-            # for debugging, print state info at 5Hz
             if step % 25 == 0: # 5Hz
-                
-                # Observation
+                # 관측값
                 lin_w = mdp.ObservationFns.get_lin_vel_w(env, asset)[0]
                 ang_b = mdp.ObservationFns.get_ang_vel_b(env, asset)[0]
-                
                 RAD2DEG = 180.0 / math.pi
-                att_q_all = mdp.ObservationFns.get_quaternion_w(env, asset)     # (N, 4)
-                roll, pitch, yaw = math_utils.euler_xyz_from_quat(att_q_all)    # (N,)
+                att_q_all = mdp.ObservationFns.get_quaternion_w(env, asset)  # (N, 4)
+                roll, pitch, yaw = math_utils.euler_xyz_from_quat(att_q_all)  # each (N,)
                 att_deg_all = torch.stack((roll, pitch, yaw), dim=1) * RAD2DEG  # (N, 3)
-                r0, p0, y0 = att_deg_all[0].tolist()  # (3,) in degrees
+                r0, p0, y0 = att_deg_all[0].tolist()  # (3,) -> 파이썬 float 3개
 
-                # Action/thrust debugging
-                bc = env.action_manager.get_term("base_controller") 
+                # 액션/추력 디버깅
+                bc = env.action_manager.get_term("base_controller")  # name은 ActionsCfg의 필드명과 동일
+                # raw(-1~1), processed(ω: rad/s)
                 raw_act = bc.raw_actions[0]                 # (4,)
                 omega   = bc.processed_actions[0]           # (4,) rad/s
-                
+
+                # 총추력 합 Fz = Σ(k_f * ω^2)  [N]
+                # (BaseController에서 k_f는 rad/s^2 계수로 변환되어 있음)
                 kf = bc._k_f
                 Fz_total = float((omega**2 * kf).sum().item())
                 ang_sp_norm = float(bc.CascadeController._ang_vel_sp_b[0].norm().item())
@@ -142,6 +143,8 @@ def main():
                 pos_w = bc.CascadeController._pos_w[0].tolist()
                 pos_sp_w = bc.CascadeController._pos_sp_w[0].tolist()
                 torque_sp_b = bc.CascadeController._torque_sp_b[0,:].tolist()
+
+                # 보조 출력: 각 모터 rpm
                 rpm = (omega * (60.0 / (2.0 * math.pi))).tolist()
 
                 print(

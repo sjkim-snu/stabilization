@@ -130,6 +130,12 @@ class EpisodeCSVLogger:
 
         self._ensure_device_and_alloc(rewards)
 
+        # normalize dones to 1-D bool tensor on logger device
+        try:
+            dones = dones.reshape(-1).to(dtype=torch.bool, device=self._torch_device)
+        except Exception:
+            dones = torch.as_tensor(dones, dtype=torch.bool, device=self._torch_device).reshape(-1)
+
         # episode step accumulations
         self._ep_len += 1
 
@@ -201,7 +207,6 @@ class EpisodeCSVLogger:
             # action mean across steps (4 components as float)
             if self._act_sum is not None and ep_len > 0:
                 means = (self._act_sum[i] / float(ep_len)).detach().to("cpu").tolist()
-                # ensure 4 outputs
                 means = (means + [0.0, 0.0, 0.0, 0.0])[:4]
                 for k in range(4):
                     row[f"act_mean_{k}"] = f"{float(means[k]):.6f}"

@@ -69,10 +69,10 @@ REWARD:
   ORI_ERR_WEIGHT: 0.5       # Weight for orientation error reward
 
 STABILIZATION:
-  POS_ERR_TOL: 0          # Position error threshold for determine stabilization (m)
-  LIN_VEL_TOL: 0          # Linear velocity threshold for determine stabilization (m/s)
-  ANG_VEL_TOL: 0          # Angular velocity threshold for determine stabilization (rad/s)
-  TILT_DEGREE_TOL: 0.0     # Tilt angle threshold for determine stabilization (degrees)
+  POS_ERR_TOL: 0.03          # Position error threshold for determine stabilization (m)
+  LIN_VEL_TOL: 0.01          # Linear velocity threshold for determine stabilization (m/s)
+  ANG_VEL_TOL: 0.01          # Angular velocity threshold for determine stabilization (rad/s)
+  TILT_DEGREE_TOL: 0.3     # Tilt angle threshold for determine stabilization (degrees)
 
 TERMINATION:
   FLIP_TILT_DEGREE: 90.0    # Terminate if tilt angle exceeds (degrees)
