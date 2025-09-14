@@ -77,7 +77,16 @@ class EventFns:
         # Randomize angular velocity
         ang_vel_min = torch.tensor(ang_vel_range[0], dtype=torch.float32, device=device)  # (3,)
         ang_vel_max = torch.tensor(ang_vel_range[1], dtype=torch.float32, device=device)  # (3,)
-        ang_vel_w = torch.rand((M, 3), dtype=torch.float32, device=device) * (ang_vel_max - ang_vel_min) + ang_vel_min  # (N, 3)
+        ang_vel_b = torch.rand((M, 3), dtype=torch.float32, device=device) * (ang_vel_max - ang_vel_min) + ang_vel_min  # (M, 3)  # 추가 (+)
+        omega_norm = torch.linalg.norm(ang_vel_b, dim=1, keepdim=True)  # 추가 (+)
+        scale = torch.clamp(max_omega_norm / (omega_norm + 1e-8), max=1.0)  # 추가 (+)
+        ang_vel_b = ang_vel_b * scale  # 추가 (+)
+
+        # Rotate body-rate to world-rate using quaternion (v' = v + qw*(2*qv×v) + qv×(2*qv×v))  # 추가 (+)
+        qv = quat_w[:, 1:4]  # (M,3)  # 추가 (+)
+        qw = quat_w[:, 0:1]  # (M,1)  # 추가 (+)
+        t = 2.0 * torch.cross(qv, ang_vel_b, dim=1)  # (M,3)  # 추가 (+)
+        ang_vel_w = ang_vel_b + qw * t + torch.cross(qv, t, dim=1)  # (M,3)  # 추가 (+)
 
         # Construct root state
         root_state = torch.zeros((M, 13), dtype=torch.float32, device=device)  # (M, 13)
