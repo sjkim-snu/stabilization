@@ -391,6 +391,17 @@ class BaseController(ActionTerm):
         ang_vel_sp_b = self.CascadeController.attitude_control(quat_w, quat_sp_w)
         momentum_sp_b = self.CascadeController.body_rate_control(self._J_diag, ang_vel_b, ang_vel_sp_b)
 
+        # Add residual thrust command from action
+        res = self._raw
+        res_thrust = res[:, 0:1]
+        res_torque = res[:, 1:4]
+        F_per_rotor_max = self._k_f * (self._w_max ** 2)
+        F_total_max = 4.0 * F_per_rotor_max
+        delta_accel = (res_thrust * F_total_max) / self._mass
+        t_norm = torch.clamp(t_norm + delta_accel, min=0.0)
+        torque_limit = self.CascadeController._torque_limit
+        momentum_sp_b = torch.clamp(momentum_sp_b + res_torque * torque_limit, -torque_limit, torque_limit)
+
         # Mixing
         self._mixed_thrust = ActionFns.mix_rate_thrust_to_rotor_forces(
             required_accel = t_norm,
