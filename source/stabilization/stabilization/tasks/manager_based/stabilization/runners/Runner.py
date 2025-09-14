@@ -117,7 +117,7 @@ def main():
                 actions=actions, 
             )
 
-            if step % 25 == 0: # 5Hz
+            if step % 5 == 0: # 5Hz
                 # 관측값
                 lin_w = mdp.ObservationFns.get_lin_vel_w(env, asset)[0]
                 ang_b = mdp.ObservationFns.get_ang_vel_b(env, asset)[0]

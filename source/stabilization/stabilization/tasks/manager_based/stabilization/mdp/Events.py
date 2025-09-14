@@ -21,7 +21,7 @@ class EventFns:
         env_ids: torch.Tensor,
         lin_vel_range: Tuple[Tuple[float, float, float], Tuple[float, float, float]],
         ang_vel_range: Tuple[Tuple[float, float, float], Tuple[float, float, float]],
-        max_tilt_rad: float,
+        tilt_range_deg: Tuple[float, float],
         yaw_range: Tuple[float, float],
         max_omega_norm: float,
         asset_cfg: SceneEntityCfg = SceneEntityCfg(name="Robot")
@@ -54,16 +54,26 @@ class EventFns:
         pos_w = pos_all[env_ids]  # (M, 3)
         
         # Randomize orientation
-        roll = math_utils.sample_uniform(-max_tilt_rad, max_tilt_rad, M, device=device) # (M,)
-        pitch = math_utils.sample_uniform(-max_tilt_rad, max_tilt_rad, M, device=device) # (M,)
+        roll = math_utils.sample_uniform(tilt_range_deg[0], tilt_range_deg[1], M, device=device) # (M,)
+        pitch = math_utils.sample_uniform(tilt_range_deg[0], tilt_range_deg[1], M, device=device) # (M,)
         yaw = math_utils.sample_uniform(yaw_range[0], yaw_range[1], M, device=device) # (M,)
         quat_w = math_utils.quat_from_euler_xyz(roll, pitch, yaw) # (M, 4)
 
         # Randomize linear velocity
         lin_vel_min = torch.tensor(lin_vel_range[0], dtype=torch.float32, device=device)  # (3,)
         lin_vel_max = torch.tensor(lin_vel_range[1], dtype=torch.float32, device=device)  # (3,)
-        lin_vel_w = torch.rand((M, 3), dtype=torch.float32, device=device) * (lin_vel_max - lin_vel_min) + lin_vel_min  # (N, 3)
+        
+        # To avoid very small velocities, sample magnitude and sign separately
+        mag  = torch.rand((M, 3), dtype=torch.float32, device=device) * (lin_vel_max - lin_vel_min) + lin_vel_min  # (M,3)
+        sign = torch.where(
+            torch.rand((M, 3), device=device) < 0.5,
+            -torch.ones((M, 3), dtype=torch.float32, device=device),
+            torch.ones((M, 3), dtype=torch.float32, device=device),
+        )  # (M,3)
 
+        lin_vel_w = sign * mag  # (M,3) in (-max, -min) ∪ (min, max)
+        lin_vel_w[:, 2] = lin_vel_w[:, 2].abs()  # ensure positive z velocity
+        
         # Randomize angular velocity
         ang_vel_min = torch.tensor(ang_vel_range[0], dtype=torch.float32, device=device)  # (3,)
         ang_vel_max = torch.tensor(ang_vel_range[1], dtype=torch.float32, device=device)  # (3,)
@@ -100,7 +110,8 @@ class EventCfg:
                 CONFIG["EVENT"]["ANG_VEL_MIN"], 
                 CONFIG["EVENT"]["ANG_VEL_MAX"]
                 ),
-            "max_tilt_rad": math.radians(CONFIG["EVENT"]["TILT_DEGREE_MAX"]),
+            "tilt_range_deg": (math.radians(CONFIG["EVENT"]["TILT_RANGE_DEG"][0]), 
+                               math.radians(CONFIG["EVENT"]["TILT_RANGE_DEG"][1])),
             "yaw_range": (math.radians(CONFIG["EVENT"]["YAW_DEGREE_RANGE"][0]), 
                           math.radians(CONFIG["EVENT"]["YAW_DEGREE_RANGE"][1])),
             "max_omega_norm": CONFIG["EVENT"]["OMEGA_NORM_MAX"],

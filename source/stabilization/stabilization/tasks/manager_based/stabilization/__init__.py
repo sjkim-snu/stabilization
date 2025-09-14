@@ -12,12 +12,14 @@ from . import agents
 ##
 
 
+import gymnasium as gym
+
 gym.register(
-    id="Template-Stabilization-v0",
+    id="Stabilization-Quadrotor-v0",
     entry_point="isaaclab.envs:ManagerBasedRLEnv",
     disable_env_checker=True,
     kwargs={
-        "env_cfg_entry_point": f"{__name__}.stabilization_env_cfg:StabilizationEnvCfg",
-        "rl_games_cfg_entry_point": f"{agents.__name__}:rl_games_ppo_cfg.yaml",
+        "env_cfg_entry_point": "stabilization.tasks.manager_based.stabilization.runners.Runner:StabilizationEnvCfg",
+        "rl_games_cfg_entry_point": "stabilization.tasks.manager_based.stabilization.agent:ppo_cfg.yaml",
     },
 )

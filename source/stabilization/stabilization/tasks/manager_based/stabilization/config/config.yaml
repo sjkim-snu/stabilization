@@ -19,8 +19,8 @@
 LAUNCHER:
   HEADLESS: false            # Whether to run in headless mode
   DEVICE: "cuda:0"           # Device to run the simulation on
-  USE_MANUAL_ACTION: false    # Only for testing. If true, use the action specified below.
-  MANUAL_ACTION: [-0.937, -0.937, -0.937, -0.937]
+  USE_MANUAL_ACTION: false   # Only for testing. If true, use the action specified below.
+  MANUAL_ACTION: [0,0,0,0]
 
 # ─────────────────────────────────────────────────────────────────────────────────────
 # Configuration of the Scene and Environment
@@ -34,8 +34,8 @@ SCENE:
   FILTER_COLLISIONS: true   # If true, collisions will not occur between cloned entities
 
 ENV:
-  PHYSICS_DT: 0.002         # Physics timestep
-  DECIMATION: 4             # Number of physics steps per control step
+  PHYSICS_DT: 0.005          # Physics timestep (200 Hz)
+  DECIMATION: 2             # Number of physics steps per control step (2 * 0.005 = 0.01s, 100 Hz)
   EPISODE_LENGTH_S: 20.0    # Length of each episode in seconds
   VIEWER: [3.0, 3.0, 2.0]   # Initial camera position in the viewer
 
@@ -46,11 +46,11 @@ ENV:
 # ─────────────────────────────────────────────────────────────────────────────────────
 
 EVENT:
-  LIN_VEL_MIN: [-1.5, -1.5, 0.0]    # Minimum linear velocity (m/s)
-  LIN_VEL_MAX: [1.5, 1.5, 1.5]       # Maximum linear velocity (m/s)
-  ANG_VEL_MIN: [-1.0, -1.0, -1.0]    # Minimum angular velocity (rad/s)
-  ANG_VEL_MAX: [1.0, 1.0, 1.0]       # Maximum angular velocity (rad/s)
-  TILT_DEGREE_MAX: 10.0              # Maximum tilt angle (degrees)
+  LIN_VEL_MIN: [2.0, 2.0, 2.0]     # Minimum linear velocity (m/s)
+  LIN_VEL_MAX: [2.5, 2.5, 2.5]       # Maximum linear velocity (m/s)
+  ANG_VEL_MIN: [-3.0, -3.0, -3.0]    # Minimum angular velocity (rad/s)
+  ANG_VEL_MAX: [3.0, 3.0, 3.0]       # Maximum angular velocity (rad/s)
+  TILT_RANGE_DEG: [50, 60]           # Maximum tilt angle (degrees)
   YAW_DEGREE_RANGE: [-180.0, 180.0]  # Range of yaw angle (degrees)
   OMEGA_NORM_MAX: 1.0                # Maximum angular velocity norm (rad/s)
   
@@ -59,14 +59,17 @@ OBSERVATION:
   ENABLE_CORRUPTION: false  # If true, add noise to observations
 
 REWARD:
-  POS_ERR_HALF: 1.0         # Position error reward drops to half (m)
-  LIN_VEL_HALF: 1.0         # Linear velocity reward drops to half (m/s)
-  ANG_VEL_HALF: 1.0         # Angular velocity reward drops to half (rad/s)
-  ORI_ERR_HALF: 0.5         # Orientation error reward drops to half (rad)
-  POS_ERR_WEIGHT: 1.0       # Weight for position error reward
-  LIN_VEL_WEIGHT: 0.1       # Weight for linear velocity reward
-  ANG_VEL_WEIGHT: 0.1       # Weight for angular velocity reward
-  ORI_ERR_WEIGHT: 0.5       # Weight for orientation error reward
+  POS_ERR_HALF: 0.5         # Position error reward drops to half (m)
+  LIN_VEL_HALF: 0.5         # Linear velocity reward drops to half (m/s)
+  ANG_VEL_HALF: 0.4         # Angular velocity reward drops to half (rad/s)
+  ORI_ERR_HALF: 0.12         # Orientation error reward drops to half (rad)
+  POS_ERR_WEIGHT: 0.06       # Weight for position error reward
+  LIN_VEL_WEIGHT: 0.05       # Weight for linear velocity reward
+  ANG_VEL_WEIGHT: 0.05       # Weight for angular velocity reward
+  ORI_ERR_WEIGHT: 0.18       # Weight for orientation error reward
+  TIME_PENALTY_WEIGHT: 2.0  # Weight for time penalty
+  STABILIZED_BONUS_WEIGHT: 1000.0 # Weight for stabilized bonus
+  ABNORMAL_PENALTY_WEIGHT: 1500.0  # Weight for abnormal penalty
 
 STABILIZATION:
   POS_ERR_TOL: 0.03          # Position error threshold for determine stabilization (m)
@@ -76,7 +79,7 @@ STABILIZATION:
 
 TERMINATION:
   FLIP_TILT_DEGREE: 90.0    # Terminate if tilt angle exceeds (degrees)
-  DIST_THRESHOLD: 10.0      # Terminate if distance from spawn exceeds (m)
+  DIST_THRESHOLD: 20.0      # Terminate if distance from spawn exceeds (m)
   ALTITUDE_THRESHOLD: 0.02  # Terminate if altitude is below (m)
 
 CASCADE_CONTROLLER: 

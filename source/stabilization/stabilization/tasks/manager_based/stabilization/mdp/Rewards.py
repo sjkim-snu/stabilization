@@ -6,6 +6,8 @@ from isaaclab.managers import SceneEntityCfg
 from isaaclab.utils import configclass
 import stabilization.tasks.manager_based.stabilization.mdp as mdp
 from stabilization.tasks.manager_based.stabilization.config import load_parameters
+import math
+from isaaclab.envs.mdp.terminations import time_out as _time_out
 
 # Load configuration from YAML file
 CONFIG = load_parameters()
@@ -154,27 +156,101 @@ class RewardFns:
         _push_rew_term(env, "ang_vel", ang_vel_reward)
         return ang_vel_reward
     
-    # @staticmethod
-    # def orientation_sigmoid(
-    #     env: ManagerBasedEnv, 
-    #     norm_half: float,
-    #     asset_cfg: SceneEntityCfg = SceneEntityCfg(name="Robot")
-    # ) -> torch.Tensor:
+    @staticmethod
+    def orientation_sigmoid(
+        env: ManagerBasedEnv, 
+        norm_half: float,
+        asset_cfg: SceneEntityCfg = SceneEntityCfg(name="Robot")
+    ) -> torch.Tensor:
         
-    #     """
-    #     Reward based on the orientation (roll, pitch) using a sigmoid function.
-    #     Returns (N,) float tensor.
-    #     """
+        """
+        Reward based on the orientation (roll, pitch) using a sigmoid function.
+        Returns (N,) float tensor.
+        """
         
-    #     roll  = mdp.ObservationFns.roll_current(env, asset_cfg).reshape(-1, 1)   # (N,1)
-    #     pitch = mdp.ObservationFns.pitch_current(env, asset_cfg).reshape(-1, 1)  # (N,1)
+        quat = mdp.ObservationFns.get_quaternion_w(env, asset_cfg)  # (N, 4)
+        roll, pitch, _ = math_utils.euler_xyz_from_quat(quat)   # each (N,)
+        orientation = torch.stack([roll, pitch], dim=1)         # (N,2)
+        orientation_norm = l2_norm(orientation)                 # (N,)
+        k = k_from_half(norm_half)
+        orientation_reward = sigmoid(orientation_norm, k)   # (N,)
+        _push_rew_term(env, "ori_err", orientation_reward)
+        return orientation_reward
 
-    #     orientation = torch.cat([roll, pitch], dim=1)       # (N, 2)
-    #     orientation_norm = l2_norm(orientation)             # (N,)
-    #     k = k_from_half(norm_half)
-    #     orientation_reward = sigmoid(orientation_norm, k)   # (N,)
-    #     _push_rew_term(env, "ori_err", orientation_reward)
-    #     return orientation_reward
+    @staticmethod
+    def time_penalty(env: ManagerBasedEnv, asset_cfg: SceneEntityCfg = SceneEntityCfg(name="Robot")) -> torch.Tensor:
+        quat = mdp.ObservationFns.get_quaternion_w(env, asset_cfg)  # (N, 4)
+        N = quat.shape[0]
+        device, dtype = quat.device, quat.dtype
+        dt_s = float(CONFIG["ENV"]["PHYSICS_DT"]) * float(CONFIG["ENV"]["DECIMATION"])
+        per_sec = 0.05
+        val = torch.full((N,), -dt_s * per_sec, device=device, dtype=dtype)
+        _push_rew_term(env, "time_penalty", val)
+        return val
+
+    @staticmethod
+    def stabilized_bonus(env: ManagerBasedEnv, asset_cfg: SceneEntityCfg = SceneEntityCfg(name="Robot")) -> torch.Tensor:
+        ok = mdp.TerminationFns.is_stabilized(
+            env=env,
+            pos_tol_m=float(CONFIG["STABILIZATION"]["POS_ERR_TOL"]),
+            lin_vel_tol_mps=float(CONFIG["STABILIZATION"]["LIN_VEL_TOL"]),
+            ang_vel_tol_radps=float(CONFIG["STABILIZATION"]["ANG_VEL_TOL"]),
+            tilt_tol_rad=math.radians(float(CONFIG["STABILIZATION"]["TILT_DEGREE_TOL"])),
+            asset_cfg=asset_cfg,
+        ).to(torch.float32)
+        _push_rew_term(env, "stabilized", ok)
+        return ok
+
+    @staticmethod
+    def abnormal_penalty(env: ManagerBasedEnv, asset_cfg: SceneEntityCfg = SceneEntityCfg(name="Robot")) -> torch.Tensor:
+        # 1) far from spawn
+        far = mdp.TerminationFns.is_far_from_spawn(
+            env=env,
+            dist_threshold_m=float(CONFIG["TERMINATION"]["DIST_THRESHOLD"]),
+            asset_cfg=asset_cfg,
+        )
+        # 2) flipped
+        flipped = mdp.TerminationFns.is_flipped(
+            env=env,
+            tilt_threshold_rad=math.radians(float(CONFIG["TERMINATION"]["FLIP_TILT_DEGREE"])),
+            asset_cfg=asset_cfg,
+        )
+        # 3) crashed
+        crashed = mdp.TerminationFns.is_crashed(
+            env=env,
+            z_min_m=float(CONFIG["TERMINATION"]["ALTITUDE_THRESHOLD"]),
+            asset_cfg=asset_cfg,
+        )
+        # 4) NaN or Inf
+        naninf = mdp.TerminationFns.is_nan_or_inf(
+            env=env,
+            asset_cfg=asset_cfg,
+        )
+        # 5) timeout (우선 기본 time_out 함수 호출, 실패 시 보강)
+        try:
+            to_mask = _time_out(env)
+            if isinstance(to_mask, tuple):
+                to_mask = to_mask[0]
+            timeout = (to_mask > 0.5) if not torch.is_floating_point(to_mask) else (to_mask > 0.5)
+        except Exception:
+            # fallback: progress buffer/episode step 유추
+            dt_s = float(CONFIG["ENV"]["PHYSICS_DT"]) * float(CONFIG["ENV"]["DECIMATION"])
+            max_steps = max(1, int(round(float(CONFIG["ENV"]["EPISODE_LENGTH_S"]) / dt_s)))
+            # 장치/크기 일치용 기준 텐서 확보
+            ref = flipped if isinstance(flipped, torch.Tensor) else far
+            device, dtype = ref.device, torch.bool
+            if hasattr(env, "progress_buf"):
+                steps = env.progress_buf.to(device=device)
+            elif hasattr(env, "episode_step"):
+                steps = env.episode_step.to(device=device)
+            else:
+                steps = torch.zeros_like(ref, dtype=torch.long, device=device)
+            timeout = steps >= (max_steps - 1)
+        # 종합 abnormal
+        bad = (far | flipped | crashed | naninf | timeout).to(torch.float32)
+        out = torch.where(bad > 0.5, -torch.ones_like(bad), torch.zeros_like(bad))
+        _push_rew_term(env, "abnormal", out)
+        return out
 
 @configclass
 class RewardCfg:
@@ -203,10 +279,28 @@ class RewardCfg:
         weight=CONFIG["REWARD"]["ANG_VEL_WEIGHT"],
     )
     
-    # orientation = RewTerm(
-    #     func=RewardFns.orientation_sigmoid,
-    #     params={
-    #         "asset_cfg": SceneEntityCfg(name="Robot"), 
-    #         "norm_half": CONFIG["REWARD"]["ORI_ERR_HALF"]},
-    #     weight=CONFIG["REWARD"]["ORI_ERR_WEIGHT"],
-    # )
+    orientation = RewTerm(
+        func=RewardFns.orientation_sigmoid,
+        params={
+            "asset_cfg": SceneEntityCfg(name="Robot"), 
+            "norm_half": CONFIG["REWARD"]["ORI_ERR_HALF"]},
+        weight=CONFIG["REWARD"]["ORI_ERR_WEIGHT"],
+    )
+
+    time_penalty = RewTerm(
+        func=RewardFns.time_penalty,
+        params={"asset_cfg": SceneEntityCfg(name="Robot")},
+        weight=CONFIG["REWARD"]["TIME_PENALTY_WEIGHT"],
+    )
+
+    stabilized_bonus = RewTerm(
+        func=RewardFns.stabilized_bonus,
+        params={"asset_cfg": SceneEntityCfg(name="Robot")},
+        weight=CONFIG["REWARD"]["STABILIZED_BONUS_WEIGHT"],
+    )
+
+    abnormal_penalty = RewTerm(
+        func=RewardFns.abnormal_penalty,
+        params={"asset_cfg": SceneEntityCfg(name="Robot")},
+        weight=CONFIG["REWARD"]["ABNORMAL_PENALTY_WEIGHT"],
+    )
