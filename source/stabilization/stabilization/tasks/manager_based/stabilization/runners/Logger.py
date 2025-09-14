@@ -98,7 +98,7 @@ class EpisodeCSVLogger:
             "env_id",
             "episode_idx",
             "episode_length",          # float steps
-            "episode_length_s",        # float seconds (policy_dt_s가 설정된 경우)
+            "episode_length_s",        # float seconds
             "done_reason",
         ]
         # reward terms: sum only

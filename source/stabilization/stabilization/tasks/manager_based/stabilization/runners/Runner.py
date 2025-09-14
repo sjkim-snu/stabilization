@@ -70,7 +70,7 @@ def main():
     cfg=Logger.CSVLoggerCfg(
         device=CONFIG["LAUNCHER"]["DEVICE"],
         policy_dt_s=CONFIG["ENV"]["PHYSICS_DT"] * CONFIG["ENV"]["DECIMATION"],
-        flush_every_rows=1,  # ← (수정 1) 종료마다 즉시 기록
+        flush_every_rows=1,
         ),
     )
 
@@ -125,10 +125,10 @@ def main():
                 att_q_all = mdp.ObservationFns.get_quaternion_w(env, asset)  # (N, 4)
                 roll, pitch, yaw = math_utils.euler_xyz_from_quat(att_q_all)  # each (N,)
                 att_deg_all = torch.stack((roll, pitch, yaw), dim=1) * RAD2DEG  # (N, 3)
-                r0, p0, y0 = att_deg_all[0].tolist()  # (3,) -> 파이썬 float 3개
+                r0, p0, y0 = att_deg_all[0].tolist()  # (3,)
 
                 # 액션/추력 디버깅
-                bc = env.action_manager.get_term("base_controller")  # name은 ActionsCfg의 필드명과 동일
+                bc = env.action_manager.get_term("base_controller") 
                 # raw(-1~1), processed(ω: rad/s)
                 raw_act = bc.raw_actions[0]                 # (4,)
                 omega   = bc.processed_actions[0]           # (4,) rad/s
