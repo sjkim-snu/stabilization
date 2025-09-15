@@ -226,28 +226,8 @@ class RewardFns:
             env=env,
             asset_cfg=asset_cfg,
         )
-        # 5) timeout (우선 기본 time_out 함수 호출, 실패 시 보강)
-        try:
-            to_mask = _time_out(env)
-            if isinstance(to_mask, tuple):
-                to_mask = to_mask[0]
-            timeout = (to_mask > 0.5) if not torch.is_floating_point(to_mask) else (to_mask > 0.5)
-        except Exception:
-            # fallback: progress buffer/episode step 유추
-            dt_s = float(CONFIG["ENV"]["PHYSICS_DT"]) * float(CONFIG["ENV"]["DECIMATION"])
-            max_steps = max(1, int(round(float(CONFIG["ENV"]["EPISODE_LENGTH_S"]) / dt_s)))
-            # 장치/크기 일치용 기준 텐서 확보
-            ref = flipped if isinstance(flipped, torch.Tensor) else far
-            device, dtype = ref.device, torch.bool
-            if hasattr(env, "progress_buf"):
-                steps = env.progress_buf.to(device=device)
-            elif hasattr(env, "episode_step"):
-                steps = env.episode_step.to(device=device)
-            else:
-                steps = torch.zeros_like(ref, dtype=torch.long, device=device)
-            timeout = steps >= (max_steps - 1)
         # 종합 abnormal
-        bad = (far | flipped | crashed | naninf | timeout).to(torch.float32)
+        bad = (far | flipped | crashed | naninf).to(torch.float32)
         out = torch.where(bad > 0.5, -torch.ones_like(bad), torch.zeros_like(bad))
         _push_rew_term(env, "abnormal", out)
         return out
