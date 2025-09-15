@@ -255,3 +255,11 @@ class TerminationsCfg:
         params={},
         time_out=True,
     )
+
+
+# Aliases for easier access
+is_flipped = TerminationFns.is_flipped
+is_far_from_spawn = TerminationFns.is_far_from_spawn
+is_crashed = TerminationFns.is_crashed
+is_stabilized = TerminationFns.is_stabilized
+is_nan_or_inf = TerminationFns.is_nan_or_inf

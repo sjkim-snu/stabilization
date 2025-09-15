@@ -112,3 +112,13 @@ class ObservationsCfg:
             func=ObservationFns.get_ang_vel_b,
             params={"asset_cfg": SceneEntityCfg(name="Robot")},
         )
+
+# Aliases for easier access
+get_current_pos_w = ObservationFns.get_current_pos_w
+get_spawn_pos_w = ObservationFns.get_spawn_pos_w
+get_lin_vel_w = ObservationFns.get_lin_vel_w
+get_current_lin_vel_w = ObservationFns.get_lin_vel_w
+get_quaternion_w = ObservationFns.get_quaternion_w
+get_current_quaternion_w = ObservationFns.get_quaternion_w
+get_ang_vel_b = ObservationFns.get_ang_vel_b
+get_current_ang_vel_b = ObservationFns.get_ang_vel_b

@@ -126,3 +126,6 @@ class EventCfg:
             "max_omega_norm": CONFIG["EVENT"]["OMEGA_NORM_MAX"],
         },
     )
+
+# Alias for easier access
+throw_reset = EventFns.throw_reset

@@ -304,3 +304,12 @@ class RewardCfg:
         params={"asset_cfg": SceneEntityCfg(name="Robot")},
         weight=CONFIG["REWARD"]["ABNORMAL_PENALTY_WEIGHT"],
     )
+
+# Aliases for easier access
+pos_err_w_sigmoid = RewardFns.pos_err_w_sigmoid
+lin_vel_w_sigmoid = RewardFns.lin_vel_w_sigmoid
+ang_vel_b_sigmoid = RewardFns.ang_vel_b_sigmoid
+orientation_sigmoid = RewardFns.orientation_sigmoid
+time_penalty = RewardFns.time_penalty
+stabilized_bonus = RewardFns.stabilized_bonus
+abnormal_penalty = RewardFns.abnormal_penalty
