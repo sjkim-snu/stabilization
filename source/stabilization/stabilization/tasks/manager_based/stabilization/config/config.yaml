@@ -59,23 +59,23 @@ OBSERVATION:
   ENABLE_CORRUPTION: false  # If true, add noise to observations
 
 REWARD:
-  POS_ERR_HALF: 0.5         # Position error reward drops to half (m)
+  POS_ERR_HALF: 0.3         # Position error reward drops to half (m)
   LIN_VEL_HALF: 0.5         # Linear velocity reward drops to half (m/s)
-  ANG_VEL_HALF: 0.4         # Angular velocity reward drops to half (rad/s)
-  ORI_ERR_HALF: 0.12         # Orientation error reward drops to half (rad)
-  POS_ERR_WEIGHT: 0.06       # Weight for position error reward
+  ANG_VEL_HALF: 0.3         # Angular velocity reward drops to half (rad/s)
+  ORI_ERR_HALF: 0.15         # Orientation error reward drops to half (rad)
+  POS_ERR_WEIGHT: 0.15       # Weight for position error reward
   LIN_VEL_WEIGHT: 0.05       # Weight for linear velocity reward
   ANG_VEL_WEIGHT: 0.05       # Weight for angular velocity reward
-  ORI_ERR_WEIGHT: 0.18       # Weight for orientation error reward
-  TIME_PENALTY_WEIGHT: 170.0  # Weight for time penalty
-  STABILIZED_BONUS_WEIGHT: 1000.0 # Weight for stabilized bonus
-  ABNORMAL_PENALTY_WEIGHT: 500.0  # Weight for abnormal penalty
+  ORI_ERR_WEIGHT: 0.25       # Weight for orientation error reward
+  TIME_PENALTY_WEIGHT: 10.0  # Weight for time penalty
+  STABILIZED_BONUS_WEIGHT: 3000.0 # Weight for stabilized bonus
+  ABNORMAL_PENALTY_WEIGHT: 300.0  # Weight for abnormal penalty
 
 STABILIZATION:
-  POS_ERR_TOL: 0.1          # Position error threshold for determine stabilization (m)
-  LIN_VEL_TOL: 0.05          # Linear velocity threshold for determine stabilization (m/s)
-  ANG_VEL_TOL: 0.05          # Angular velocity threshold for determine stabilization (rad/s)
-  TILT_DEGREE_TOL: 1.0     # Tilt angle threshold for determine stabilization (degrees)
+  POS_ERR_TOL: 0.5          # Position error threshold for determine stabilization (m)
+  LIN_VEL_TOL: 0.3          # Linear velocity threshold for determine stabilization (m/s)
+  ANG_VEL_TOL: 0.3          # Angular velocity threshold for determine stabilization (rad/s)
+  TILT_DEGREE_TOL: 5.0     # Tilt angle threshold for determine stabilization (degrees)
 
 TERMINATION:
   FLIP_TILT_DEGREE: 90.0    # Terminate if tilt angle exceeds (degrees)

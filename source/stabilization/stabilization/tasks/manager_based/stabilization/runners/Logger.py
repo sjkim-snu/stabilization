@@ -162,7 +162,7 @@ class EpisodeCSVLogger:
             self._ensure_terms(list(rew_terms_step.keys()))
             for name, val in rew_terms_step.items():
                 w = float(self._term_weight.get(name, 1.0))
-                self._term_wsum[name] += (val * w)
+                self._term_wsum[name] += (val * w * float(self.cfg.policy_dt_s))
 
         if actions is not None:  # 추가 (+)
             A = actions.shape[-1]  # 추가 (+)
@@ -210,8 +210,7 @@ class EpisodeCSVLogger:
             row["rew_stabilized_sum_w"] = f"{sw_sta:.6f}"
             row["rew_time_penalty_sum_w"] = f"{sw_time:.6f}"
 
-            total_w = sw_abn + sw_ang + sw_lin + sw_ori + sw_pos + sw_sta + sw_time  # 추가 (+)
-            row["rew_total_sum"] = f"{total_w:.6f}"  # 추가 (+)
+            row["rew_total_sum"] = f"{float(self._rew_total_sum[i].item()):.6f}"
 
             if self._act_sum is not None and ep_len > 0:  # 추가 (+)
                 means = (self._act_sum[i] / float(ep_len)).detach().to("cpu").tolist()  # 추가 (+)

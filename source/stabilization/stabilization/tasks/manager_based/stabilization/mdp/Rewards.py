@@ -182,9 +182,8 @@ class RewardFns:
         quat = mdp.ObservationFns.get_quaternion_w(env, asset_cfg)  # (N, 4)
         N = quat.shape[0]
         device, dtype = quat.device, quat.dtype
-        dt_s = float(CONFIG["ENV"]["PHYSICS_DT"]) * float(CONFIG["ENV"]["DECIMATION"])
         per_sec = 0.05
-        val = torch.full((N,), -dt_s * per_sec, device=device, dtype=dtype)
+        val = torch.full((N,), per_sec, device=device, dtype=dtype)
         _push_rew_term(env, "time_penalty", val)
         return val
 
