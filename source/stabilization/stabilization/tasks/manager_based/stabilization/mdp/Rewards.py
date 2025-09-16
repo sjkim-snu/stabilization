@@ -26,18 +26,12 @@ def _push_rew_term(env, name: str, value: torch.Tensor):
 
 def l2_norm(tensor: torch.Tensor) -> torch.Tensor:
     
-    """
-    Compute the L2 norm of a tensor along the last dimension.
-    
-    Args:
-        tensor (torch.Tensor): Input tensor of shape
-    Returns:
-        torch.Tensor: L2 norm of shape 
-    """
+    """Compute the L2 norm of a tensor along the last dimension."""
     
     return torch.sqrt((tensor ** 2).sum(dim=1) + 1e-8)
 
 def sigmoid(norm: torch.Tensor, k: float) -> torch.Tensor:
+    
     """
     Sigmoid function for reward shaping.
     
@@ -68,65 +62,116 @@ def k_from_half(norm_half: float) -> float:
 
     return float(torch.log(torch.tensor(3.0)) / norm_half)
 
+def linear_interpolation(x: torch.Tensor, lower: float, upper: float) -> torch.Tensor:
+    lower_t = torch.as_tensor(lower, device=x.device, dtype=x.dtype)  # 추가 (+)
+    upper_t = torch.as_tensor(upper, device=x.device, dtype=x.dtype)  # 추가 (+)
+    t = ((upper_t - x) / (upper_t - lower_t + 1e-8)).clamp(0.0, 1.0)  # 추가 (+)
+    return t 
+
+def gate_near(dist: torch.Tensor, d_near: float, d_far: float) -> torch.Tensor:  # 추가 (+)
+    return ((d_far - dist) / (d_far - d_near + 1e-8)).clamp(0.0, 1.0)  # 추가 (+)
+
+def get_pos_err_w(env: ManagerBasedEnv, asset_cfg: SceneEntityCfg) -> torch.Tensor:
+    spawn_pos_w = mdp.ObservationFns.get_spawn_pos_w(env, asset_cfg) 
+    current_pos_w = mdp.ObservationFns.get_current_pos_w(env, asset_cfg)  
+    pos_err_w = spawn_pos_w - current_pos_w  
+    return pos_err_w
+
+def get_tilt_angle(env: ManagerBasedEnv, asset_cfg: SceneEntityCfg) -> torch.Tensor:
+    quat = mdp.ObservationFns.get_quaternion_w(env, asset_cfg)  # 추가 (+)
+    roll, pitch, _ = math_utils.euler_xyz_from_quat(quat)  # 추가 (+)
+    return roll, pitch
+
+def get_allowed_tilt_rad(  
+    dist: torch.Tensor, deg_near: float, deg_far: float, d_near: float, d_far: float
+) -> torch.Tensor:
+    t = gate_near(dist, d_near, d_far)  # 추가 (+)
+    deg = deg_near * t + deg_far * (1.0 - t)  # 추가 (+)
+    return torch.deg2rad(torch.as_tensor(deg, device=dist.device, dtype=dist.dtype))  # 추가 (+)
+
+
 class RewardFns:
     
     @staticmethod
-    def pos_err_w_sigmoid(
-        env: ManagerBasedEnv,
-        norm_half: float,
-        asset_cfg: SceneEntityCfg = SceneEntityCfg(name="Robot")
-    ) -> torch.Tensor:
-        
-        """
-        Reward based on the position error in world frame using a sigmoid function.
-        
-        Args:
-            env (ManagerBasedEnv): The environment instance.
-            asset_cfg (SceneEntityCfg): Name of the quadrotor entity.
-            norm_half (float): Half point for the sigmoid function.
-        Returns:
-            reward: Tensor of shape (N,) representing the position error reward.
-        Note:
-            The reward is 1 when the position error is zero,
-            and 0.5 when the position error equals norm_half.
-        """
+    def pos_err_w_sigmoid(env: ManagerBasedEnv, norm_half: float, asset_cfg: SceneEntityCfg = SceneEntityCfg(name="Robot")) -> torch.Tensor:  # 추가 (+)
+        pos_err_w = get_pos_err_w(env, asset_cfg)  # 추가 (+)
+        error_norm = l2_norm(pos_err_w)  # 추가 (+)
+        k = k_from_half(norm_half)  # 추가 (+)
+        pos_reward = sigmoid(error_norm, k)  # 추가 (+)
 
-        spawn_pos_w = mdp.ObservationFns.get_spawn_pos_w(env, asset_cfg) # (N, 3)
-        current_pos_w = mdp.ObservationFns.get_current_pos_w(env, asset_cfg) # (N, 3)
-        error_w = spawn_pos_w - current_pos_w # (N, 3)
-        error_norm = l2_norm(error_w) # (N,)
-        k = k_from_half(norm_half)
-        pos_reward = sigmoid(error_norm, k) # (N,)
-        _push_rew_term(env, "pos_err", pos_reward)
-        return pos_reward
+        dist = error_norm  # 추가 (+)
+        d_near = float(CONFIG["STABILIZATION"]["POS_ERR_TOL"])  # 추가 (+)
+        d_far  = float(CONFIG["REWARD"]["POS_ERR_HALF"])  # 추가 (+)
+        deg_near = float(CONFIG["STABILIZATION"]["TILT_DEGREE_TOL"])  # 추가 (+)
+        deg_far  = float(CONFIG["CASCADE_CONTROLLER"]["TILT_MAX"][0])  # 추가 (+)
+
+        roll, pitch = get_tilt_angle(env, asset_cfg)  # 추가 (+)
+        tilt = torch.sqrt(roll * roll + pitch * pitch + 1e-8)  # 추가 (+)
+        tilt_allow = get_allowed_tilt_rad(dist, deg_near, deg_far, d_near, d_far)  # 추가 (+)
+        tilt_ex = (tilt - tilt_allow).clamp(min=0.0)  # 추가 (+)
+        g_theta = linear_interpolation(tilt_ex, 0.0, math.radians(deg_near))  # 추가 (+)
+
+        ang_b = mdp.ObservationFns.get_ang_vel_b(env, asset_cfg)  # 추가 (+)
+        ang_norm = l2_norm(ang_b)  # 추가 (+)
+        rate_hard = float(CONFIG["STABILIZATION"]["ANG_VEL_TOL"])  # 추가 (+)
+        rate_soft = float(CONFIG["REWARD"]["ANG_VEL_HALF"])  # 추가 (+)
+        g_rate = linear_interpolation(ang_norm, rate_hard, rate_soft)  # 추가 (+)
+
+        pos_reward = pos_reward * g_theta * g_rate  # 추가 (+)
+        _push_rew_term(env, "pos_err", pos_reward)  # 추가 (+)
+        return pos_reward  # 추가 (+)
+
     
     @staticmethod
-    def lin_vel_w_sigmoid(
-        env: ManagerBasedEnv,
-        norm_half: float,
-        asset_cfg: SceneEntityCfg = SceneEntityCfg(name="Robot")
-    ) -> torch.Tensor:
-        
-        """
-        Reward based on the linear velocity in body frame using a sigmoid function.
-        
-        Args:
-            env (ManagerBasedEnv): The environment instance.
-            asset_cfg (SceneEntityCfg): Name of the quadrotor entity.
-            norm_half (float): Half point for the sigmoid function.
-        Returns:
-            reward: Tensor of shape (N,) representing the linear velocity reward.
-        Note:
-            The reward is 1 when the linear velocity is zero,
-            and 0.5 when the linear velocity equals norm_half.
-        """
-        
-        lin_vel_w = mdp.ObservationFns.get_lin_vel_w(env, asset_cfg)
-        lin_vel_norm = l2_norm(lin_vel_w)
-        k = k_from_half(norm_half)
-        vel_reward = sigmoid(lin_vel_norm, k)
-        _push_rew_term(env, "lin_vel", vel_reward)
-        return vel_reward
+    def lin_vel_w_sigmoid(env: ManagerBasedEnv, norm_half: float, asset_cfg: SceneEntityCfg = SceneEntityCfg(name="Robot")) -> torch.Tensor:  # 추가 (+)
+        vel_w = mdp.ObservationFns.get_lin_vel_w(env, asset_cfg)  # 추가 (+)
+        sp = mdp.ObservationFns.get_spawn_pos_w(env, asset_cfg)  # 추가 (+)
+        cp = mdp.ObservationFns.get_current_pos_w(env, asset_cfg)  # 추가 (+)
+        to_vec = sp - cp  # 추가 (+)
+        dist = l2_norm(to_vec)  # 추가 (+)
+        e_to = to_vec / (dist.unsqueeze(-1) + 1e-8)  # 추가 (+)
+
+        v_r = (vel_w * e_to).sum(dim=-1)  # 추가 (+)
+        v_t = vel_w - v_r.unsqueeze(-1) * e_to  # 추가 (+)
+        v_t_norm = l2_norm(v_t)  # 추가 (+)
+
+        d_near = float(CONFIG["STABILIZATION"]["POS_ERR_TOL"])  # 추가 (+)
+        d_far  = float(CONFIG["REWARD"]["POS_ERR_HALF"])  # 추가 (+)
+        gnear  = gate_near(dist, d_near, d_far)  # 추가 (+)
+
+        kv   = float(CONFIG["REWARD"]["LIN_VEL_HALF"]) / float(CONFIG["REWARD"]["POS_ERR_HALF"])  # 추가 (+)
+        vmin = float(CONFIG["STABILIZATION"]["LIN_VEL_TOL"])  # 추가 (+)
+        vlim_xy = 0.5 * (float(CONFIG["CASCADE_CONTROLLER"]["VEL_LIMIT"][0]) + float(CONFIG["CASCADE_CONTROLLER"]["VEL_LIMIT"][1]))  # 추가 (+)
+        vmax = float(vlim_xy)  # 추가 (+)
+        v_star = torch.clip(kv * dist, min=vmin, max=vmax)  # 추가 (+)
+
+        sig_near = float(CONFIG["STABILIZATION"]["LIN_VEL_TOL"])  # 추가 (+)
+        sig_far  = float(CONFIG["REWARD"]["LIN_VEL_HALF"])  # 추가 (+)
+        sigma = sig_near * gnear + sig_far * (1.0 - gnear)  # 추가 (+)
+
+        track = torch.exp(-0.5 * ((v_r - v_star) / (sigma + 1e-8)) ** 2)  # 추가 (+)
+
+        w_tan = gnear / (sig_near + 1e-8) + (1.0 - gnear) / (sig_far + 1e-8)  # 추가 (+)
+        side_pen = -w_tan * v_t_norm  # 추가 (+)
+
+        roll, pitch = get_tilt_angle(env, asset_cfg)  # 추가 (+)
+        tilt = torch.sqrt(roll * roll + pitch * pitch + 1e-8)  # 추가 (+)
+        deg_near = float(CONFIG["STABILIZATION"]["TILT_DEGREE_TOL"])  # 추가 (+)
+        deg_far  = float(CONFIG["CASCADE_CONTROLLER"]["TILT_MAX"][0])  # 추가 (+)
+        tilt_allow = get_allowed_tilt_rad(dist, deg_near, deg_far, d_near, d_far)  # 추가 (+)
+        tilt_ex = (tilt - tilt_allow).clamp(min=0.0)  # 추가 (+)
+        g_theta = linear_interpolation(tilt_ex, 0.0, math.radians(deg_near))  # 추가 (+)
+
+        ang_b = mdp.ObservationFns.get_ang_vel_b(env, asset_cfg)  # 추가 (+)
+        ang_norm = l2_norm(ang_b)  # 추가 (+)
+        rate_hard = float(CONFIG["STABILIZATION"]["ANG_VEL_TOL"])  # 추가 (+)
+        rate_soft = float(CONFIG["REWARD"]["ANG_VEL_HALF"])  # 추가 (+)
+        g_rate = linear_interpolation(ang_norm, rate_hard, rate_soft)  # 추가 (+)
+
+        vel_reward = g_theta * g_rate * (track + side_pen)  # 추가 (+)
+        _push_rew_term(env, "lin_vel", vel_reward)  # 추가 (+)
+        return vel_reward  # 추가 (+)
+
     
     @staticmethod
     def ang_vel_b_sigmoid(
@@ -157,35 +202,47 @@ class RewardFns:
         return ang_vel_reward
     
     @staticmethod
-    def orientation_sigmoid(
-        env: ManagerBasedEnv, 
-        norm_half: float,
-        asset_cfg: SceneEntityCfg = SceneEntityCfg(name="Robot")
-    ) -> torch.Tensor:
-        
-        """
-        Reward based on the orientation (roll, pitch) using a sigmoid function.
-        Returns (N,) float tensor.
-        """
-        
-        quat = mdp.ObservationFns.get_quaternion_w(env, asset_cfg)  # (N, 4)
-        roll, pitch, _ = math_utils.euler_xyz_from_quat(quat)   # each (N,)
-        orientation = torch.stack([roll, pitch], dim=1)         # (N,2)
-        orientation_norm = l2_norm(orientation)                 # (N,)
-        k = k_from_half(norm_half)
-        orientation_reward = sigmoid(orientation_norm, k)   # (N,)
-        _push_rew_term(env, "ori_err", orientation_reward)
-        return orientation_reward
+    def orientation_sigmoid(env: ManagerBasedEnv, norm_half: float, asset_cfg: SceneEntityCfg = SceneEntityCfg(name="Robot")) -> torch.Tensor:  # 추가 (+)
+        roll, pitch = get_tilt_angle(env, asset_cfg)  # 추가 (+)
+        tilt = torch.sqrt(roll * roll + pitch * pitch + 1e-8)  # 추가 (+)
+        k = k_from_half(norm_half)  # 추가 (+)
+        base = sigmoid(tilt, k)  # 추가 (+)
+
+        pos_err_w = get_pos_err_w(env, asset_cfg)  # 추가 (+)
+        dist = l2_norm(pos_err_w)  # 추가 (+)
+        d_near = float(CONFIG["STABILIZATION"]["POS_ERR_TOL"])  # 추가 (+)
+        d_far  = float(CONFIG["REWARD"]["POS_ERR_HALF"])  # 추가 (+)
+        deg_near = float(CONFIG["STABILIZATION"]["TILT_DEGREE_TOL"])  # 추가 (+)
+        deg_far  = float(CONFIG["CASCADE_CONTROLLER"]["TILT_MAX"][0])  # 추가 (+)
+        tilt_allow = get_allowed_tilt_rad(dist, deg_near, deg_far, d_near, d_far)  # 추가 (+)
+        tilt_ex = (tilt - tilt_allow).clamp(min=0.0)  # 추가 (+)
+        g_theta = linear_interpolation(tilt_ex, 0.0, math.radians(deg_near))  # 추가 (+)
+
+        ori_reward = base * g_theta  # 추가 (+)
+        _push_rew_term(env, "orientation", ori_reward)  # 추가 (+)
+        return ori_reward  # 추가 (+)
+
 
     @staticmethod
-    def time_penalty(env: ManagerBasedEnv, asset_cfg: SceneEntityCfg = SceneEntityCfg(name="Robot")) -> torch.Tensor:
-        quat = mdp.ObservationFns.get_quaternion_w(env, asset_cfg)  # (N, 4)
-        N = quat.shape[0]
-        device, dtype = quat.device, quat.dtype
-        per_sec = 0.05
-        val = torch.full((N,), -per_sec, device=device, dtype=dtype)
-        _push_rew_term(env, "time_penalty", val)
-        return val
+    def time_penalty(env: ManagerBasedEnv, asset_cfg: SceneEntityCfg = SceneEntityCfg(name="Robot")) -> torch.Tensor:  # 추가 (+)
+        quat = mdp.ObservationFns.get_quaternion_w(env, asset_cfg)  # 추가 (+)
+        N = quat.shape[0]  # 추가 (+)
+        device, dtype = quat.device, quat.dtype  # 추가 (+)
+
+        per_sec = 1.0 / float(CONFIG["ENV"]["EPISODE_LENGTH_S"])  # 추가 (+)
+        val = torch.full((N,), -per_sec, device=device, dtype=dtype)  # 추가 (+)
+
+        dist = l2_norm(get_pos_err_w(env, asset_cfg))  # 추가 (+)
+        prev = env.extras.get("_prev_dist", None)  # 추가 (+)
+        if (prev is None) or (not isinstance(prev, torch.Tensor)) or (prev.shape != dist.shape):  # 추가 (+)
+            prev = dist.detach()  # 추가 (+)
+        k_prog = 1.0 / float(CONFIG["REWARD"]["POS_ERR_HALF"])  # 추가 (+)
+        val = val + k_prog * (prev - dist)  # 추가 (+)
+        env.extras["_prev_dist"] = dist.detach()  # 추가 (+)
+
+        _push_rew_term(env, "time_penalty", val)  # 추가 (+)
+        return val  # 추가 (+)
+
 
     @staticmethod
     def stabilized_bonus(env: ManagerBasedEnv, asset_cfg: SceneEntityCfg = SceneEntityCfg(name="Robot")) -> torch.Tensor:
