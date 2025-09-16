@@ -323,6 +323,7 @@ class RewardCfg:
         weight=CONFIG["REWARD"]["LIN_VEL_WEIGHT"],
     )
     
+    
     ang_vel_b = RewTerm(
         func=RewardFns.ang_vel_b_sigmoid,
         params={
