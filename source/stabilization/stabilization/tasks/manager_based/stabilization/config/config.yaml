@@ -48,8 +48,8 @@ ENV:
 EVENT:
   LIN_VEL_MIN: [1.5, 1.5, 1.5]     # Minimum linear velocity (m/s)
   LIN_VEL_MAX: [2.0, 2.0, 2.0]       # Maximum linear velocity (m/s)
-  ANG_VEL_MIN: [-5.0, -5.0, -5.0]    # Minimum angular velocity (rad/s)
-  ANG_VEL_MAX: [5.0, 5.0, 5.0]       # Maximum angular velocity (rad/s)
+  ANG_VEL_MIN: [-2.0, -2.0, -2.0]    # Minimum angular velocity (rad/s)
+  ANG_VEL_MAX: [2.0, 2.0, 2.0]       # Maximum angular velocity (rad/s)
   TILT_RANGE_DEG: [60, 80]           # Maximum tilt angle (degrees)
   YAW_DEGREE_RANGE: [-180.0, 180.0]  # Range of yaw angle (degrees)
   OMEGA_NORM_MAX: 10.0                # Maximum angular velocity norm (rad/s)
@@ -60,9 +60,9 @@ OBSERVATION:
 
 REWARD:
   POS_ERR_HALF: 2.5         # Position error reward drops to half (m)
-  LIN_VEL_HALF: 0.2         # Linear velocity reward drops to half (m/s)
-  ANG_VEL_HALF: 0.15         # Angular velocity reward drops to half (rad/s)
-  ORI_ERR_HALF: 0.09         # Orientation error reward drops to half (rad)
+  LIN_VEL_HALF: 0.5         # Linear velocity reward drops to half (m/s)
+  ANG_VEL_HALF: 1.5         # Angular velocity reward drops to half (rad/s)
+  ORI_ERR_HALF: 0.15         # Orientation error reward drops to half (rad)
   POS_ERR_WEIGHT: 0.60       # Weight for position error reward
   LIN_VEL_WEIGHT: 0.15       # Weight for linear velocity reward
   ANG_VEL_WEIGHT: 0.08       # Weight for angular velocity reward
