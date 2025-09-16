@@ -234,10 +234,18 @@ class RewardFns:
         prev = env.extras.get("_prev_dist", None)  # 추가 (+)
         if (prev is None) or (not isinstance(prev, torch.Tensor)) or (prev.shape != dist.shape):  # 추가 (+)
             prev = dist.detach()  # 추가 (+)
+
+        step_dt = float(CONFIG["ENV"]["PHYSICS_DT"]) * float(CONFIG["ENV"]["DECIMATION"])  # 추가 (+)
+        elapsed = getattr(env, "episode_length_buf", None)  # 추가 (+)
+        if isinstance(elapsed, torch.Tensor):  # 추가 (+)
+            reset_flags = (elapsed == 0)  # 추가 (+)
+            prev = torch.where(reset_flags, dist.detach(), prev)  # 추가 (+)
+
         k_prog = 1.0 / float(CONFIG["REWARD"]["POS_ERR_HALF"])  # 추가 (+)
         val = val + k_prog * (prev - dist)  # 추가 (+)
         env.extras["_prev_dist"] = dist.detach()  # 추가 (+)
 
+        val = val * step_dt  # 추가 (+)
         _push_rew_term(env, "time_penalty", val)  # 추가 (+)
         return val  # 추가 (+)
 
@@ -252,6 +260,16 @@ class RewardFns:
             tilt_tol_rad=math.radians(float(CONFIG["STABILIZATION"]["TILT_DEGREE_TOL"])),
             asset_cfg=asset_cfg,
         ).to(torch.float32)
+
+        step_dt = float(CONFIG["ENV"]["PHYSICS_DT"]) * float(CONFIG["ENV"]["DECIMATION"])  # 추가 (+)
+        elapsed = getattr(env, "episode_length_buf", None)  # 추가 (+)
+        if isinstance(elapsed, torch.Tensor):  # 추가 (+)
+            t = elapsed.to(dtype=ok.dtype, device=ok.device) * step_dt  # 추가 (+)
+            T_max = float(CONFIG["ENV"]["EPISODE_LENGTH_S"])  # 추가 (+)
+            early_frac = (T_max - t).clamp(min=0.0) / T_max  # 추가 (+)
+            bonus = ok * early_frac * (-float(CONFIG["REWARD"]["TIME_PENALTY_WEIGHT"])) * step_dt  # 추가 (+)
+            ok = ok + bonus  # 추가 (+)
+
         _push_rew_term(env, "stabilized", ok)
         return ok
 
