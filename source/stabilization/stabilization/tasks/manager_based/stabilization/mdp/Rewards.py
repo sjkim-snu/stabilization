@@ -127,7 +127,8 @@ class RewardFns:
         to_vec = get_pos_err_w(env, asset_cfg)  # 추가 (+)
         dist = l2_norm(to_vec)  # 추가 (+)
         e_to = to_vec / (dist.unsqueeze(-1) + 1e-8)  # 추가 (+)
-
+        
+        vel_w = mdp.ObservationFns.get_lin_vel_w(env, asset_cfg)  # 추가 (+)
         v_r = (vel_w * e_to).sum(dim=-1)  # 추가 (+)
         v_t = vel_w - v_r.unsqueeze(-1) * e_to  # 추가 (+)
         v_t_norm = l2_norm(v_t)  # 추가 (+)
