@@ -59,14 +59,14 @@ OBSERVATION:
   ENABLE_CORRUPTION: false  # If true, add noise to observations
 
 REWARD:
-  POS_ERR_HALF: 1.3         # Position error reward drops to half (m)
-  LIN_VEL_HALF: 0.7         # Linear velocity reward drops to half (m/s)
-  ANG_VEL_HALF: 1.5         # Angular velocity reward drops to half (rad/s)
+  POS_ERR_HALF: 2.0         # Position error reward drops to half (m)
+  LIN_VEL_HALF: 1.3         # Linear velocity reward drops to half (m/s)
+  ANG_VEL_HALF: 1.2         # Angular velocity reward drops to half (rad/s)
   ORI_ERR_HALF: 0.15         # Orientation error reward drops to half (rad)
-  POS_ERR_WEIGHT: 1.2       # Weight for position error reward
-  LIN_VEL_WEIGHT: 0.25       # Weight for linear velocity reward
-  ANG_VEL_WEIGHT: 0.04       # Weight for angular velocity reward
-  ORI_ERR_WEIGHT: 0.05       # Weight for orientation error reward
+  POS_ERR_WEIGHT: 1.6       # Weight for position error reward
+  LIN_VEL_WEIGHT: 0.45       # Weight for linear velocity reward
+  ANG_VEL_WEIGHT: 0.08       # Weight for angular velocity reward
+  ORI_ERR_WEIGHT: 0.12       # Weight for orientation error reward
   TIME_PENALTY_WEIGHT: 5.0   # Weight for time penalty
   STABILIZED_BONUS_WEIGHT: 1500.0 # Weight for stabilized bonus
   ABNORMAL_PENALTY_WEIGHT: 700.0  # Weight for abnormal penalty
@@ -79,7 +79,7 @@ STABILIZATION:
 
 TERMINATION:
   FLIP_TILT_DEGREE: 90.0    # Terminate if tilt angle exceeds (degrees)
-  DIST_THRESHOLD: 20.0      # Terminate if distance from spawn exceeds (m)
+  DIST_THRESHOLD: 40.0      # Terminate if distance from spawn exceeds (m)
   ALTITUDE_THRESHOLD: 0.02  # Terminate if altitude is below (m)
 
 CASCADE_CONTROLLER: 
