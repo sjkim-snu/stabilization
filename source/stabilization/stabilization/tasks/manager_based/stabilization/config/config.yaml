@@ -28,7 +28,7 @@ LAUNCHER:
 # ─────────────────────────────────────────────────────────────────────────────────────
 
 SCENE:
-  NUM_ENVS: 256              # Number of parallel environments
+  NUM_ENVS: 10              # Number of parallel environments
   ENV_SPACING: 0.5          # Spacing between environments (m)
   CLONE_IN_FABRIC: true     # If true, entities are cloned in fabric for better performance
   FILTER_COLLISIONS: true   # If true, collisions will not occur between cloned entities
@@ -46,36 +46,36 @@ ENV:
 # ─────────────────────────────────────────────────────────────────────────────────────
 
 EVENT:
-  LIN_VEL_MIN: [2.5, 2.5, 2.5]     # Minimum linear velocity (m/s)
-  LIN_VEL_MAX: [3.0, 3.0, 3.0]       # Maximum linear velocity (m/s)
-  ANG_VEL_MIN: [-4.0, -4.0, -4.0]    # Minimum angular velocity (rad/s)
-  ANG_VEL_MAX: [4.0, 4.0, 4.0]       # Maximum angular velocity (rad/s)
-  TILT_RANGE_DEG: [60, 70]           # Maximum tilt angle (degrees)
-  YAW_DEGREE_RANGE: [-180.0, 180.0]  # Range of yaw angle (degrees)
-  OMEGA_NORM_MAX: 10.0                # Maximum angular velocity norm (rad/s)
+  LIN_VEL_MIN: [1.5, 1.5, 1.5]     # Minimum linear velocity (m/s)
+  LIN_VEL_MAX: [2.0, 2.0, 2.0]       # Maximum linear velocity (m/s)
+  ANG_VEL_MIN: [-2.0, -2.0, -2.0]    # Minimum angular velocity (rad/s)
+  ANG_VEL_MAX: [2.0, 2.0, 2.0]       # Maximum angular velocity (rad/s)
+  TILT_RANGE_DEG: [30, 40]           # Maximum tilt angle (degrees)
+  YAW_DEGREE_RANGE: [-45.0, 45.0]  # Range of yaw angle (degrees)
+  OMEGA_NORM_MAX: 7.0                # Maximum angular velocity norm (rad/s)
   
 OBSERVATION:
   CONCATENATE_TERMS: true   # If true, concatenate observation terms into a single vector
   ENABLE_CORRUPTION: false  # If true, add noise to observations
 
 REWARD:
-  POS_ERR_HALF: 4.0         # Position error reward drops to half (m)
-  LIN_VEL_HALF: 2.0         # Linear velocity reward drops to half (m/s)
-  ANG_VEL_HALF: 1.8         # Angular velocity reward drops to half (rad/s)
+  POS_ERR_HALF: 2.0         # Position error reward drops to half (m)
+  LIN_VEL_HALF: 1.3         # Linear velocity reward drops to half (m/s)
+  ANG_VEL_HALF: 1.2         # Angular velocity reward drops to half (rad/s)
   ORI_ERR_HALF: 0.15         # Orientation error reward drops to half (rad)
   POS_ERR_WEIGHT: 0.6       # Weight for position error reward
   LIN_VEL_WEIGHT: 1.2       # Weight for linear velocity reward
-  ANG_VEL_WEIGHT: 0.08       # Weight for angular velocity reward
-  ORI_ERR_WEIGHT: 0.08       # Weight for orientation error reward
-  TIME_PENALTY_WEIGHT: 10.0   # Weight for time penalty
-  STABILIZED_BONUS_WEIGHT: 1500.0 # Weight for stabilized bonus
+  ANG_VEL_WEIGHT: 0.12       # Weight for angular velocity reward
+  ORI_ERR_WEIGHT: 0.12       # Weight for orientation error reward
+  TIME_PENALTY_WEIGHT: 20.0   # Weight for time penalty
+  STABILIZED_BONUS_WEIGHT: 1800.0 # Weight for stabilized bonus
   ABNORMAL_PENALTY_WEIGHT: 700.0  # Weight for abnormal penalty
 
 STABILIZATION:
-  POS_ERR_TOL: 0.3          # Position error threshold for determine stabilization (m)
-  LIN_VEL_TOL: 0.2          # Linear velocity threshold for determine stabilization (m/s)
-  ANG_VEL_TOL: 0.2          # Angular velocity threshold for determine stabilization (rad/s)
-  TILT_DEGREE_TOL: 3.0     # Tilt angle threshold for determine stabilization (degrees)
+  POS_ERR_TOL: 0.8          # Position error threshold for determine stabilization (m)
+  LIN_VEL_TOL: 0.3          # Linear velocity threshold for determine stabilization (m/s)
+  ANG_VEL_TOL: 0.3          # Angular velocity threshold for determine stabilization (rad/s)
+  TILT_DEGREE_TOL: 5.0     # Tilt angle threshold for determine stabilization (degrees)
 
 TERMINATION:
   FLIP_TILT_DEGREE: 90.0    # Terminate if tilt angle exceeds (degrees)
