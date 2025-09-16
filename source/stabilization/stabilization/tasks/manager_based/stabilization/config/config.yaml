@@ -36,7 +36,7 @@ SCENE:
 ENV:
   PHYSICS_DT: 0.005          # Physics timestep (200 Hz)
   DECIMATION: 2             # Number of physics steps per control step (2 * 0.005 = 0.01s, 100 Hz)
-  EPISODE_LENGTH_S: 20.0    # Length of each episode in seconds
+  EPISODE_LENGTH_S: 30.0    # Length of each episode in seconds
   VIEWER: [3.0, 3.0, 2.0]   # Initial camera position in the viewer
 
 
@@ -46,8 +46,8 @@ ENV:
 # ─────────────────────────────────────────────────────────────────────────────────────
 
 EVENT:
-  LIN_VEL_MIN: [2.5, 2.5, 2.5]     # Minimum linear velocity (m/s)
-  LIN_VEL_MAX: [3.0, 3.0, 3.0]       # Maximum linear velocity (m/s)
+  LIN_VEL_MIN: [1.5, 1.5, 1.5]     # Minimum linear velocity (m/s)
+  LIN_VEL_MAX: [2.0, 2.0, 2.0]       # Maximum linear velocity (m/s)
   ANG_VEL_MIN: [-5.0, -5.0, -5.0]    # Minimum angular velocity (rad/s)
   ANG_VEL_MAX: [5.0, 5.0, 5.0]       # Maximum angular velocity (rad/s)
   TILT_RANGE_DEG: [60, 80]           # Maximum tilt angle (degrees)
@@ -59,16 +59,16 @@ OBSERVATION:
   ENABLE_CORRUPTION: false  # If true, add noise to observations
 
 REWARD:
-  POS_ERR_HALF: 0.2         # Position error reward drops to half (m)
+  POS_ERR_HALF: 2.5         # Position error reward drops to half (m)
   LIN_VEL_HALF: 0.2         # Linear velocity reward drops to half (m/s)
   ANG_VEL_HALF: 0.15         # Angular velocity reward drops to half (rad/s)
   ORI_ERR_HALF: 0.09         # Orientation error reward drops to half (rad)
   POS_ERR_WEIGHT: 0.60       # Weight for position error reward
   LIN_VEL_WEIGHT: 0.15       # Weight for linear velocity reward
   ANG_VEL_WEIGHT: 0.08       # Weight for angular velocity reward
-  ORI_ERR_WEIGHT: 0.20       # Weight for orientation error reward
+  ORI_ERR_WEIGHT: 0.30       # Weight for orientation error reward
   TIME_PENALTY_WEIGHT: 0.5  # Weight for time penalty
-  STABILIZED_BONUS_WEIGHT: 300.0 # Weight for stabilized bonus
+  STABILIZED_BONUS_WEIGHT: 1500.0 # Weight for stabilized bonus
   ABNORMAL_PENALTY_WEIGHT: 300.0  # Weight for abnormal penalty
 
 STABILIZATION:
