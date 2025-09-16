@@ -183,7 +183,7 @@ class RewardFns:
         N = quat.shape[0]
         device, dtype = quat.device, quat.dtype
         per_sec = 0.05
-        val = torch.full((N,), per_sec, device=device, dtype=dtype)
+        val = torch.full((N,), -per_sec, device=device, dtype=dtype)
         _push_rew_term(env, "time_penalty", val)
         return val
 
