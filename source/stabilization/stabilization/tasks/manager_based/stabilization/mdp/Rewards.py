@@ -124,10 +124,7 @@ class RewardFns:
     
     @staticmethod
     def lin_vel_w_sigmoid(env: ManagerBasedEnv, norm_half: float, asset_cfg: SceneEntityCfg = SceneEntityCfg(name="Robot")) -> torch.Tensor:  # 추가 (+)
-        vel_w = mdp.ObservationFns.get_lin_vel_w(env, asset_cfg)  # 추가 (+)
-        sp = mdp.ObservationFns.get_spawn_pos_w(env, asset_cfg)  # 추가 (+)
-        cp = mdp.ObservationFns.get_current_pos_w(env, asset_cfg)  # 추가 (+)
-        to_vec = sp - cp  # 추가 (+)
+        to_vec = get_pos_err_w(env, asset_cfg)  # 추가 (+)
         dist = l2_norm(to_vec)  # 추가 (+)
         e_to = to_vec / (dist.unsqueeze(-1) + 1e-8)  # 추가 (+)
 
