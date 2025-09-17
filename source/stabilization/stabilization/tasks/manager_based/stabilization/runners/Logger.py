@@ -11,8 +11,8 @@ try:
 except Exception:
     _KST = None
 
-from stabilization.tasks.manager_based.stabilization.config import load_parameters  # 추가 (+)
-CONFIG = load_parameters()  # 추가 (+)
+from stabilization.tasks.manager_based.stabilization.config import load_parameters  
+CONFIG = load_parameters()  
 
 
 @dataclass
@@ -49,28 +49,28 @@ class EpisodeCSVLogger:
         self._act_sum: Optional[torch.Tensor] = None
         self._act_dim: Optional[int] = None
 
-        self._term_weight: Dict[str, float] = {  # 추가 (+)
-            "pos_err": float(CONFIG.get("REWARD", {}).get("POS_ERR_WEIGHT", 1.0)),  # 추가 (+)
-            "lin_vel": float(CONFIG.get("REWARD", {}).get("LIN_VEL_WEIGHT", 1.0)),  # 추가 (+)
-            "ang_vel": float(CONFIG.get("REWARD", {}).get("ANG_VEL_WEIGHT", 1.0)),  # 추가 (+)
-            "ori_err": float(CONFIG.get("REWARD", {}).get("ORI_ERR_WEIGHT", 1.0)),  # 추가 (+)
-            "time_penalty": float(CONFIG.get("REWARD", {}).get("TIME_PENALTY_WEIGHT", 1.0)),  # 추가 (+)
-            "stabilized": float(CONFIG.get("REWARD", {}).get("STABILIZED_BONUS_WEIGHT", 1.0)),  # 추가 (+)
-            "abnormal": float(CONFIG.get("REWARD", {}).get("ABNORMAL_PENALTY_WEIGHT", 1.0)),  # 추가 (+)
-        }  # 추가 (+)
+        self._term_weight: Dict[str, float] = {  
+            "pos_err": float(CONFIG.get("REWARD", {}).get("POS_ERR_WEIGHT", 1.0)),  
+            "lin_vel": float(CONFIG.get("REWARD", {}).get("LIN_VEL_WEIGHT", 1.0)),  
+            "ang_vel": float(CONFIG.get("REWARD", {}).get("ANG_VEL_WEIGHT", 1.0)),  
+            "ori_err": float(CONFIG.get("REWARD", {}).get("ORI_ERR_WEIGHT", 1.0)),  
+            "time_penalty": float(CONFIG.get("REWARD", {}).get("TIME_PENALTY_WEIGHT", 1.0)),  
+            "stabilized": float(CONFIG.get("REWARD", {}).get("STABILIZED_BONUS_WEIGHT", 1.0)),  
+            "abnormal": float(CONFIG.get("REWARD", {}).get("ABNORMAL_PENALTY_WEIGHT", 1.0)),  
+        }  
 
-        self._term_alias: Dict[str, str] = {  # 추가 (+)
-            "pos_err_w": "pos_err",  # 추가 (+)
-            "lin_vel_w": "lin_vel",  # 추가 (+)
-            "ang_vel_b": "ang_vel",  # 추가 (+)
-            "orientation": "ori_err",  # 추가 (+)
-            "time_penalty": "time_penalty",  # 추가 (+)
-            "stabilized_bonus": "stabilized",  # 추가 (+)
-            "abnormal_penalty": "abnormal",  # 추가 (+)
-        }  # 추가 (+)
-        for _k, _v in list(self._term_alias.items()):  # 추가 (+)
-            if _k not in self._term_weight:  # 추가 (+)
-                self._term_weight[_k] = float(self._term_weight.get(_v, 1.0))  # 추가 (+)
+        self._term_alias: Dict[str, str] = {  
+            "pos_err_w": "pos_err",  
+            "lin_vel_w": "lin_vel",  
+            "ang_vel_b": "ang_vel",  
+            "orientation": "ori_err",  
+            "time_penalty": "time_penalty",  
+            "stabilized_bonus": "stabilized",  
+            "abnormal_penalty": "abnormal",  
+        }  
+        for _k, _v in list(self._term_alias.items()):  
+            if _k not in self._term_weight:  
+                self._term_weight[_k] = float(self._term_weight.get(_v, 1.0))  
 
         self._csv_file = open(self.filepath, "w", newline="")
         self._csv_writer = None
@@ -81,9 +81,9 @@ class EpisodeCSVLogger:
         self._ep_len = torch.zeros(self.num_envs, dtype=torch.int32, device=device)
         self._ep_idx = torch.zeros(self.num_envs, dtype=torch.int64, device=device)
         self._rew_total_sum = torch.zeros(self.num_envs, dtype=torch.float32, device=device)
-        need_terms = ["pos_err", "ang_vel", "lin_vel", "ori_err", "stabilized", "abnormal", "time_penalty"]  # 추가 (+)
-        for name in set(need_terms + list(self._term_alias.keys())):  # 추가 (+)
-            self._term_wsum[name] = torch.zeros(self.num_envs, dtype=torch.float32, device=device)  # 추가 (+)
+        need_terms = ["pos_err", "ang_vel", "lin_vel", "ori_err", "stabilized", "abnormal", "time_penalty"]  
+        for name in set(need_terms + list(self._term_alias.keys())):  
+            self._term_wsum[name] = torch.zeros(self.num_envs, dtype=torch.float32, device=device)  
         if actions is not None:
             self._act_dim = int(actions.shape[-1])
             self._act_sum = torch.zeros(self.num_envs, self._act_dim, dtype=torch.float32, device=device)
@@ -94,9 +94,9 @@ class EpisodeCSVLogger:
         for k in keys:
             base = self._term_alias.get(k, k)
             if base not in self._term_wsum:
-                self._term_wsum[base] = torch.zeros(self.num_envs, dtype=torch.float32, device=device)  # 추가 (+)
+                self._term_wsum[base] = torch.zeros(self.num_envs, dtype=torch.float32, device=device)  
             if k != base and k not in self._term_wsum:
-                self._term_wsum[k] = torch.zeros(self.num_envs, dtype=torch.float32, device=device)  # 추가 (+)
+                self._term_wsum[k] = torch.zeros(self.num_envs, dtype=torch.float32, device=device)  
 
     def _write_header(self):
         header = [
@@ -122,39 +122,39 @@ class EpisodeCSVLogger:
         self._csv_writer = csv.DictWriter(self._csv_file, fieldnames=header)
         self._csv_writer.writeheader()
 
-    def _extract_done_reason(self, term_mgr, env_i: int) -> str:  # 추가 (+)
-        try:  # 추가 (+)
-            if term_mgr is None:  # 추가 (+)
-                return ""  # 추가 (+)
-            # 1) time_out 우선 확인  # 추가 (+)
-            if hasattr(term_mgr, "time_outs"):  # 추가 (+)
-                to = term_mgr.time_outs  # 추가 (+)
-                if isinstance(to, torch.Tensor) and env_i < to.shape[0] and bool(to[env_i].item()):  # 추가 (+)
-                    return "time_out"  # 추가 (+)
-            # 2) 활성화된 term을 직접 조회 (가장 신뢰도 높음)  # 추가 (+)
-            if hasattr(term_mgr, "get_active_iterable_terms"):  # 추가 (+)
-                seq = term_mgr.get_active_iterable_terms(env_i)  # [(name, [val]), ...]  # 추가 (+)
-                reasons = [name for name, vals in seq if any(float(v) > 0.5 for v in vals)]  # 추가 (+)
-                if reasons:  # 추가 (+)
-                    return reasons[0]  # 추가 (+)
-            # 3) fallback: active_terms 순회하며 get_term(name)[env_i]가 True인 항목 찾기  # 추가 (+)
-            names = getattr(term_mgr, "active_terms", None)  # 추가 (+)
-            if isinstance(names, (list, tuple)):  # 추가 (+)
-                for name in names:  # 추가 (+)
-                    try:  # 추가 (+)
-                        t = term_mgr.get_term(name)  # 추가 (+)
-                        if isinstance(t, torch.Tensor) and env_i < t.shape[0] and bool(t[env_i].item()):  # 추가 (+)
-                            return name  # 추가 (+)
-                    except Exception:  # 추가 (+)
-                        continue  # 추가 (+)
-            # 4) 최후 fallback: terminated 플래그만 True인 경우  # 추가 (+)
-            if hasattr(term_mgr, "terminated"):  # 추가 (+)
-                term = term_mgr.terminated  # 추가 (+)
-                if isinstance(term, torch.Tensor) and env_i < term.shape[0] and bool(term[env_i].item()):  # 추가 (+)
-                    return "terminated"  # 추가 (+)
-        except Exception:  # 추가 (+)
-            pass  # 추가 (+)
-        return ""  # 추가 (+)
+    def _extract_done_reason(self, term_mgr, env_i: int) -> str:  
+        try:  
+            if term_mgr is None:  
+                return ""  
+            # 1) time_out 우선 확인  
+            if hasattr(term_mgr, "time_outs"):  
+                to = term_mgr.time_outs  
+                if isinstance(to, torch.Tensor) and env_i < to.shape[0] and bool(to[env_i].item()):  
+                    return "time_out"  
+            # 2) 활성화된 term을 직접 조회 (가장 신뢰도 높음)  
+            if hasattr(term_mgr, "get_active_iterable_terms"):  
+                seq = term_mgr.get_active_iterable_terms(env_i)  # [(name, [val]), ...]  
+                reasons = [name for name, vals in seq if any(float(v) > 0.5 for v in vals)]  
+                if reasons:  
+                    return reasons[0]  
+            # 3) fallback: active_terms 순회하며 get_term(name)[env_i]가 True인 항목 찾기  
+            names = getattr(term_mgr, "active_terms", None)  
+            if isinstance(names, (list, tuple)):  
+                for name in names:  
+                    try:  
+                        t = term_mgr.get_term(name)  
+                        if isinstance(t, torch.Tensor) and env_i < t.shape[0] and bool(t[env_i].item()):  
+                            return name  
+                    except Exception:  
+                        continue  
+            # 4) 최후 fallback: terminated 플래그만 True인 경우  
+            if hasattr(term_mgr, "terminated"):  
+                term = term_mgr.terminated  
+                if isinstance(term, torch.Tensor) and env_i < term.shape[0] and bool(term[env_i].item()):  
+                    return "terminated"  
+        except Exception:  
+            pass  
+        return ""  
 
 
     def log_step(
@@ -175,16 +175,16 @@ class EpisodeCSVLogger:
             self._act_sum += actions.to(self._act_sum.device)
 
         if rew_terms_step:
-            keys = list(rew_terms_step.keys())  # 추가 (+)
-            self._ensure_terms(keys)  # 추가 (+)
+            keys = list(rew_terms_step.keys())  
+            self._ensure_terms(keys)  
             for name, val in rew_terms_step.items():
-                base = self._term_alias.get(name, name)  # 추가 (+)
-                w = float(self._term_weight.get(name, self._term_weight.get(base, 1.0)))  # 추가 (+)
-                dt = float(self.cfg.policy_dt_s) if self.cfg.policy_dt_s is not None else 1.0  # 추가 (+)
-                device = self._term_wsum[base].device  # 추가 (+)
-                self._term_wsum[base] += (val.to(device) * w * dt)  # 추가 (+)
+                base = self._term_alias.get(name, name)  
+                w = float(self._term_weight.get(name, self._term_weight.get(base, 1.0)))  
+                dt = float(self.cfg.policy_dt_s) if self.cfg.policy_dt_s is not None else 1.0  
+                device = self._term_wsum[base].device  
+                self._term_wsum[base] += (val.to(device) * w * dt)  
                 if name != base:
-                    self._term_wsum[name] += (val.to(device) * w * dt)  # 추가 (+)
+                    self._term_wsum[name] += (val.to(device) * w * dt)  
 
         done_idx = torch.nonzero(dones, as_tuple=False).flatten().tolist()
         if not done_idx:
@@ -203,9 +203,9 @@ class EpisodeCSVLogger:
             row["episode_idx"] = int(self._ep_idx[i].item())
             ep_len_i = int(self._ep_len[i].item())
             row["episode_length"] = ep_len_i
-            dt = float(self.cfg.policy_dt_s) if self.cfg.policy_dt_s is not None else 1.0  # 추가 (+)
-            row["episode_length_s"] = f"{ep_len_i * dt:.6f}"  # 추가 (+)
-            row["done_reason"] = self._extract_done_reason(term_mgr, i)  # 추가 (+)
+            dt = float(self.cfg.policy_dt_s) if self.cfg.policy_dt_s is not None else 1.0  
+            row["episode_length_s"] = f"{ep_len_i * dt:.6f}"  
+            row["done_reason"] = self._extract_done_reason(term_mgr, i)  
 
             def _get_sum(name: str) -> float:
                 t = self._term_wsum.get(name, None)

@@ -28,7 +28,7 @@ LAUNCHER:
 # ─────────────────────────────────────────────────────────────────────────────────────
 
 SCENE:
-  NUM_ENVS: 10              # Number of parallel environments
+  NUM_ENVS: 256              # Number of parallel environments
   ENV_SPACING: 0.5          # Spacing between environments (m)
   CLONE_IN_FABRIC: true     # If true, entities are cloned in fabric for better performance
   FILTER_COLLISIONS: true   # If true, collisions will not occur between cloned entities
@@ -67,7 +67,7 @@ REWARD:
   LIN_VEL_WEIGHT: 1.2       # Weight for linear velocity reward
   ANG_VEL_WEIGHT: 0.12       # Weight for angular velocity reward
   ORI_ERR_WEIGHT: 0.12       # Weight for orientation error reward
-  TIME_PENALTY_WEIGHT: 20.0   # Weight for time penalty
+  TIME_PENALTY_WEIGHT: 200.0   # Weight for time penalty
   STABILIZED_BONUS_WEIGHT: 1800.0 # Weight for stabilized bonus
   ABNORMAL_PENALTY_WEIGHT: 700.0  # Weight for abnormal penalty
 
