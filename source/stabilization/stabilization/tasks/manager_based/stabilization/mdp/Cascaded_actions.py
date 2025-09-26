@@ -284,8 +284,8 @@ class BaseControllerCfg(ActionTermCfg):
     asset_name: str = "Robot"
     arm_length: float = 0.046
     
-    k_f_rpm2: float = 2.44e-10
-    k_m_rpm2: float = 1.24e-12
+    k_f_rpm2: float = 8e-9       # 2.44e-10
+    k_m_rpm2: float = 4e-9       # 1.24e-12
     
     w_min_rpm: float = 5000.0
     w_max_rpm: float = 25000.0

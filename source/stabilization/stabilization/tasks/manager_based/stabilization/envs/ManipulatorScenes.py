@@ -18,7 +18,7 @@ Links below provide more information about the classes used in this file.
 # https://isaac-sim.github.io/IsaacLab/main/source/api/lab/isaaclab.scene.html#isaaclab.scene.InteractiveSceneCfg 
 
 @configclass
-class StabilizationSceneCfg(InteractiveSceneCfg):
+class ManipulatorSceneCfg(InteractiveSceneCfg):
 
     # ground plane
     ground = AssetBaseCfg(
@@ -31,62 +31,46 @@ class StabilizationSceneCfg(InteractiveSceneCfg):
         prim_path="/World/DomeLight",
         spawn=sim_utils.DomeLightCfg(color=(0.9, 0.9, 0.9), intensity=500.0),
     )
-
-    # Configuration for the Crazyflie quadcopter
-    # https://isaac-sim.github.io/IsaacLab/main/source/api/lab/isaaclab.assets.html#isaaclab.assets.ArticulationCfg
     
+    # Configuration for a simple 0-DOF aerial manipulator
     Robot = ArticulationCfg(
         prim_path="{ENV_REGEX_NS}/Robot",
         spawn=sim_utils.UsdFileCfg(
-            usd_path=f"{ISAAC_NUCLEUS_DIR}/Robots/Bitcraze/Crazyflie/cf2x.usd",
-
-            # Rigid properties
-            # https://isaac-sim.github.io/IsaacLab/main/source/api/lab/isaaclab.sim.schemas.html#isaaclab.sim.schemas.RigidBodyPropertiesCfg
-
-            rigid_props=sim_utils.RigidBodyPropertiesCfg( 
-                disable_gravity=False,             
-                max_depenetration_velocity=10.0,        
-                enable_gyroscopic_forces=True,     
+            usd_path=str(ilr.files(models).joinpath("AerialManipulator_0dof.usd")),
+            rigid_props=sim_utils.RigidBodyPropertiesCfg(
+                disable_gravity=False,
+                max_depenetration_velocity=10.0,
+                enable_gyroscopic_forces=True,
             ),
-            
-            # Entire drone properties
-            # https://isaac-sim.github.io/IsaacLab/main/source/api/lab/isaaclab.sim.schemas.html#isaaclab.sim.schemas.ArticulationRootPropertiesCfg
-
             articulation_props=sim_utils.ArticulationRootPropertiesCfg(
                 enabled_self_collisions=False,
                 solver_position_iteration_count=4,
-                solver_velocity_iteration_count=1,
+                solver_velocity_iteration_count=0, 
                 sleep_threshold=0.005,
                 stabilization_threshold=0.001,
             ),
             copy_from_source=False,
         ),
-
-        # Initial state configuration for the quadrotor
-        # https://isaac-sim.github.io/IsaacLab/main/_modules/isaaclab/assets/articulation/articulation_cfg.html#ArticulationCfg.InitialStateCfg
-
         init_state=ArticulationCfg.InitialStateCfg(
-            pos=(0.0, 0.0, 0.5), # z position above ground
+            pos=(0.0, 0.0, 0.5),
+            # Default joint positions and velocities is 0.0
             joint_pos={
                 ".*": 0.0,
             },
             joint_vel={
-                "m1_joint": 0.0,
-                "m2_joint": 0.0,
-                "m3_joint": 0.0,
-                "m4_joint": 0.0,
+                "prop1": 0.0,
+                "prop2": -0.0,
+                "prop3": 0.0,
+                "prop4": -0.0,
             },
         ),
-        
-        # Actuators configuration for the quadrotor
-        # https://isaac-sim.github.io/IsaacLab/main/source/api/lab/isaaclab.actuators.html#isaaclab.actuators.ImplicitActuatorCfg
-        
-        actuators={
+
+        # Available joints: 
+        actuators={ 
             "dummy": ImplicitActuatorCfg(
                 joint_names_expr=[".*"],
-                stiffness=None,
-                damping=None,
+                stiffness=0.0,
+                damping=0.0,
             ),
         },
     )
-    

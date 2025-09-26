@@ -28,7 +28,7 @@ LAUNCHER:
 # ─────────────────────────────────────────────────────────────────────────────────────
 
 SCENE:
-  NUM_ENVS: 256              # Number of parallel environments
+  NUM_ENVS: 1              # Number of parallel environments
   ENV_SPACING: 0.5          # Spacing between environments (m)
   CLONE_IN_FABRIC: true     # If true, entities are cloned in fabric for better performance
   FILTER_COLLISIONS: true   # If true, collisions will not occur between cloned entities
@@ -46,11 +46,11 @@ ENV:
 # ─────────────────────────────────────────────────────────────────────────────────────
 
 EVENT:
-  LIN_VEL_MIN: [1.5, 1.5, 1.5]     # Minimum linear velocity (m/s)
-  LIN_VEL_MAX: [2.0, 2.0, 2.0]       # Maximum linear velocity (m/s)
+  LIN_VEL_MIN: [0, 0, 0]     # Minimum linear velocity (m/s)
+  LIN_VEL_MAX: [1, 1, 1]       # Maximum linear velocity (m/s)
   ANG_VEL_MIN: [-2.0, -2.0, -2.0]    # Minimum angular velocity (rad/s)
   ANG_VEL_MAX: [2.0, 2.0, 2.0]       # Maximum angular velocity (rad/s)
-  TILT_RANGE_DEG: [30, 40]           # Maximum tilt angle (degrees)
+  TILT_RANGE_DEG: [0, 0]           # Maximum tilt angle (degrees)
   YAW_DEGREE_RANGE: [-45.0, 45.0]  # Range of yaw angle (degrees)
   OMEGA_NORM_MAX: 7.0                # Maximum angular velocity norm (rad/s)
   

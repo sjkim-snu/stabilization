@@ -1,6 +1,6 @@
 # /home/ksj/stabilization/source/run_stab.py
 import sys, runpy
-import gymnasium as gym
+# import gymnasium as gym
 
 
 sys.path.insert(0, "/home/ksj/stabilization/source")

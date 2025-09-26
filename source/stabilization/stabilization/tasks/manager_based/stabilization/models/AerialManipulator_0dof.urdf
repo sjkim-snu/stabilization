@@ -1,0 +1,551 @@
+<?xml version="1.0" ?>
+<robot name="AerialManipulator">
+
+
+
+
+
+
+ <!-- Coordinate system of AerialManipulator -->
+ <link name="quadrotor">
+ <inertial>
+      <!-- 
+      Only virtual Coordinate frame
+      No Physical Quantities 
+      -->
+  </inertial>
+ </link>
+ 
+ <link name="arm">
+ <inertial>
+      <!-- 
+      Only virtual Coordinate frame
+      No Physical Quantities 
+      -->
+  </inertial>
+ </link>
+ 
+ <link name="gripper">
+ <inertial>
+      <!-- 
+      Only virtual Coordinate frame
+      No Physical Quantities 
+      -->
+  </inertial>
+ </link>
+ <!-- Coordinate system of Root AerialManipulator -->
+
+
+
+
+
+  <!-- 
+  Visualization of Quadrotor (Without Manipulator)
+  Include Physical Quantities
+  -->
+  <link name="quadrotor_visual">
+    <inertial>
+      <mass value="0.8"/>
+      <inertia ixx="2.09e-03" ixy="0.0" ixz="0.0" iyy="1.27e-03" iyz="0.0" izz="3.36e-03"/>
+      <origin rpy="0 0 0" xyz="0.00 0.00 0.00"/>
+    </inertial>
+    <!-- Spine -->
+    <visual>
+      <origin xyz="0 0 0" rpy="1.57079632679 0 0" />
+      <geometry>
+        <cylinder radius=".009" length=".036"/>
+      </geometry>
+      <material name="tmotor">
+        <color rgba="0.4 0.4 0.4 1.0"/>
+      </material>
+    </visual>
+    <!-- Printed Mounts -->
+    <visual>
+      <origin xyz="0 .0205 0" rpy="0 0 0" />
+      <geometry>
+        <box size=".048 .005 .02" />
+      </geometry>
+      <material name="print">
+        <color rgba="0.9 0.9 0.9 1.0"/>
+      </material>
+    </visual>
+    <visual>
+      <origin xyz="0 -.0205 0" rpy="0 0 0" />
+      <geometry>
+        <box size=".048 .005 .02" />
+      </geometry>
+      <material name="print">
+        <color rgba="0.9 0.9 0.9 1.0"/>
+      </material>
+    </visual>
+    <!-- Plates -->
+    <visual>
+      <origin xyz="0 .061 -.0115" rpy="0 0 0" />
+      <geometry>
+        <box size=".048 .086 .003" />
+      </geometry>
+      <material name="carbon">
+        <color rgba="0.2 0.2 0.2 1.0"/>
+      </material>
+    </visual>
+    <visual>
+      <origin xyz="0 -.061 -.0115" rpy="0 0 0" />
+      <geometry>
+        <box size=".048 .086 .003" />
+      </geometry>
+      <material name="carbon">
+        <color rgba="0.2 0.2 0.2 1.0"/>
+      </material>
+    </visual>
+    <visual>
+      <origin xyz="0 .061 -.0345" rpy="0 0 0" />
+      <geometry>
+        <box size=".048 .086 .003" />
+      </geometry>
+      <material name="carbon">
+        <color rgba="0.2 0.2 0.2 1.0"/>
+      </material>
+    </visual>
+    <visual>
+      <origin xyz="0 -.061 -.0345" rpy="0 0 0" />
+      <geometry>
+        <box size=".048 .086 .003" />
+      </geometry>
+      <material name="carbon">
+        <color rgba="0.2 0.2 0.2 1.0"/>
+      </material>
+    </visual>
+    <!-- Standoffs -->
+    <visual>
+      <origin xyz=".02 .022 -.023" rpy="0 0 0" />
+      <geometry>
+        <cylinder radius=".002" length=".020"/>
+      </geometry>
+      <material name="tmotor">
+        <color rgba="0.4 0.4 0.4 1.0"/>
+      </material>
+    </visual>
+    <visual>
+      <origin xyz=".02 -.022 -.023" rpy="0 0 0" />
+      <geometry>
+        <cylinder radius=".002" length=".020"/>
+      </geometry>
+      <material name="tmotor">
+        <color rgba="0.4 0.4 0.4 1.0"/>
+      </material>
+    </visual>
+    <visual>
+      <origin xyz="-.02 .022 -.023" rpy="0 0 0" />
+      <geometry>
+        <cylinder radius=".002" length=".020"/>
+      </geometry>
+      <material name="tmotor">
+        <color rgba="0.4 0.4 0.4 1.0"/>
+      </material>
+    </visual>
+    <visual>
+      <origin xyz="-.02 -.022 -.023" rpy="0 0 0" />
+      <geometry>
+        <cylinder radius=".002" length=".020"/>
+      </geometry>
+      <material name="tmotor">
+        <color rgba="0.4 0.4 0.4 1.0"/>
+      </material>
+    </visual>
+    <visual>
+      <origin xyz=".02 .099 -.023" rpy="0 0 0" />
+      <geometry>
+        <cylinder radius=".002" length=".020"/>
+      </geometry>
+      <material name="tmotor">
+        <color rgba="0.4 0.4 0.4 1.0"/>
+      </material>
+    </visual>
+    <visual>
+      <origin xyz=".02 -.099 -.023" rpy="0 0 0" />
+      <geometry>
+        <cylinder radius=".002" length=".020"/>
+      </geometry>
+      <material name="tmotor">
+        <color rgba="0.4 0.4 0.4 1.0"/>
+      </material>
+    </visual>
+    <visual>
+      <origin xyz="-.02 .099 -.023" rpy="0 0 0" />
+      <geometry>
+        <cylinder radius=".002" length=".020"/>
+      </geometry>
+      <material name="tmotor">
+        <color rgba="0.4 0.4 0.4 1.0"/>
+      </material>
+    </visual>
+    <visual>
+      <origin xyz="-.02 -.099 -.023" rpy="0 0 0" />
+      <geometry>
+        <cylinder radius=".002" length=".020"/>
+      </geometry>
+      <material name="tmotor">
+        <color rgba="0.4 0.4 0.4 1.0"/>
+      </material>
+    </visual>
+    <!-- Saddle -->
+    <visual>
+      <origin xyz="0 0 -.031" rpy="0 0 0" />
+      <geometry>
+        <box size=".009 .0455 .004" />
+      </geometry>
+      <material name="carbon">
+        <color rgba="0.2 0.2 0.2 1.0"/>
+      </material>
+    </visual>
+    <!-- Shoulder Motor -->
+    <visual>
+      <origin xyz="0 0 0" rpy="1.57079632679 0 0" />
+      <geometry>
+        <cylinder radius=".0278" length=".015"/>
+      </geometry>
+      <material name="tmotor">
+        <color rgba="0.4 0.4 0.4 1.0"/>
+      </material>
+    </visual>
+    <!-- Arms -->
+    <visual>
+      <origin xyz=".057025 .062426 -0.008" rpy="0 0 0.575959" />
+      <geometry>
+        <box size=".100 .014 .004" />
+      </geometry>
+      <material name="carbon">
+        <color rgba="0.2 0.2 0.2 1.0"/>
+      </material>
+    </visual>
+    <visual>
+      <origin xyz=".057025 -.062426 -0.008" rpy="0 0 -0.575959" />
+      <geometry>
+        <box size=".100 .014 .004" />
+      </geometry>
+      <material name="carbon">
+        <color rgba="0.2 0.2 0.2 1.0"/>
+      </material>
+    </visual>
+    <visual>
+      <origin xyz="-.057025 .062426 -0.008" rpy="0 0 -0.575959" />
+      <geometry>
+        <box size=".100 .014 .004" />
+      </geometry>
+      <material name="carbon">
+        <color rgba="0.2 0.2 0.2 1.0"/>
+      </material>
+    </visual>
+    <visual>
+      <origin xyz="-.057025 -.062426 -0.008" rpy="0 0 0.575959" />
+      <geometry>
+        <box size=".100 .014 .004" />
+      </geometry>
+      <material name="carbon">
+        <color rgba="0.2 0.2 0.2 1.0"/>
+      </material>
+    </visual>
+    <!-- Battery -->
+    <visual>
+      <origin xyz="0 .060 0" rpy="0 0 0" />
+      <geometry>
+        <box size=".036 .071 .022" />
+      </geometry>
+      <material name="battery">
+        <color rgba="0.2 0.5 0.5 1.0"/>
+      </material>
+    </visual>
+    <visual>
+      <origin xyz="0 -.060 0" rpy="0 0 0" />
+      <geometry>
+        <box size=".036 .071 .022" />
+      </geometry>
+      <material name="battery">
+        <color rgba="0.2 0.5 0.5 1.0"/>
+      </material>
+    </visual>
+
+  </link>
+  <!-- 
+  Visualization of Quadrotor (Without Manipulator)
+  Incldue Physical Quantities
+  -->
+
+
+
+
+
+  <!-- 
+  Visualization of Arm of manipulator
+  Include Physical Quantities
+  -->
+  <link name="arm_visual">
+    <inertial> 
+      <mass value="0.05"/> 
+      <origin xyz="0.00 0.00 0.04" rpy="0 0 0"/> 
+      <inertia ixx="2.33e-04" ixy="0" ixz="0" iyy="2.33e-04" iyz="0" izz="3.58e-06"/> 
+    </inertial> 
+    <!-- Wrist Motor -->
+    <visual>
+      <origin xyz="0 0 -0.0113253" rpy="0 0 0" />
+      <geometry>
+        <cylinder radius=".0142" length="0.022"/>
+      </geometry>
+      <material name="motor" />
+    </visual>
+    <!-- Carbon Fiber Tube -->
+    <visual>
+      <origin xyz="0 0 0.1054747" rpy="0 0 0" />
+      <geometry>
+        <cylinder radius=".0075" length="0.2"/>
+      </geometry>
+      <material name="carbon">
+        <color rgba="0.2 0.2 0.2 1.0"/>
+      </material>
+    </visual>
+  </link>
+  <!-- 
+  Visualization of Arm of manipulator
+  Include Physical Quantities
+  -->
+
+
+
+
+
+  <!-- 
+  Visualization of Gripper (Only end effector)
+  Include Physical Quantities
+  -->
+  <link name="gripper_visual">
+    <inertial>
+      <mass value="0.2"/> 
+      <origin xyz="0.00 0.00 0.02" rpy="0 0 0"/> 
+      <inertia ixx="4.18e-05" ixy="0" ixz="0" iyy="5.23e-05" iyz="0" izz="2.35e-05"/> 
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0.0042876" rpy="0 0 0" />
+      <geometry>
+        <box size=".04 .022 .01" />
+      </geometry>
+      <material name="carbon">
+        <color rgba="0.2 0.2 0.2 1.0"/>
+      </material>
+    </visual>
+    <!-- Servo -->
+    <visual>
+      <origin xyz="0 0 -0.0107124" rpy="0 0 0" />
+      <geometry>
+        <box size=".03 .015 .02" />
+      </geometry>
+      <material name="tmotor">
+        <color rgba="0.4 0.4 0.4 1.0"/>
+      </material>
+    </visual>
+    <!-- Finger -->
+    <visual>
+      <origin xyz=".018 0 0.0242874" rpy="0 0 0" />
+      <geometry>
+        <box size=".004 .022 .03" />
+      </geometry>
+      <material name="tip">
+        <color rgba="0.7 0.3 0.3 1.0"/>
+      </material>
+    </visual>
+    <!-- Finger -->
+    <visual>
+      <origin xyz="-.018 0 0.0242874" rpy="0 0 0" />
+      <geometry>
+        <box size=".004 .022 .03" />
+      </geometry>
+      <material name="tip">
+        <color rgba="0.7 0.3 0.3 1.0"/>
+      </material>
+    </visual>
+  </link>
+  <!-- 
+  Visualization of Gripper (Only end effector)
+  Include Physical Quantities
+  -->
+
+
+
+
+
+  <!-- 
+  Physical Joints 
+  Connection : root -> quadrotor -> arm -> gripper
+  -->
+  <joint name="quadrotor_attachment" type="fixed" dont_collapse="true">
+    <parent link="quadrotor"/>
+    <child link="quadrotor_visual"/>
+    <origin rpy="0 0 0" xyz="0 0 0"/>
+  </joint>
+
+  <joint name="arm_attachment" type="revolute" dont_collapse="true"> 
+    <parent link="quadrotor_visual"/>
+    <child link="arm_visual"/>
+    <origin rpy="0 1.57079632679 0" xyz="0 0 -0.05"/>
+    <axis xyz="0 1 0"/> 
+    <limit lower="-1.57079632679" upper="0.0" effort="20.0" velocity="3.0"/> 
+    <dynamics damping="0.5" friction="0.05"/> 
+  </joint>
+
+  <joint name="gripper_attachment" type="fixed" dont_collapse="true">
+    <parent link="arm_visual"/>
+    <child link="gripper_visual"/>
+    <origin rpy="0 0 1.57079632679" xyz="0 0 0.2054747"/> 
+  </joint>
+
+  <joint name="arm_frame_attachment" type="fixed" dont_collapse="true">
+    <parent link="arm_visual"/>
+    <child link="arm"/>
+    <origin rpy="0 -1.57079632679 0" xyz="0 0 0"/>
+  </joint>
+
+  <joint name="gripper_frame_attachment" type="fixed" dont_collapse="true">
+    <parent link="gripper_visual"/>
+    <child link="gripper"/>
+    <origin rpy="0 -1.57079632679 -1.57079632679" xyz="0 0 0"/>
+  </joint>
+
+
+  <!-- Materials -->
+
+  <material name="wash">
+    <color rgba="0.5 0.5 0.5 .15"/>
+  </material>
+  <material name="prop">
+    <color rgba="0.5 0.5 0.5 1"/>
+  </material>
+
+  <!-- Motors -->
+  <material name="motor">
+    <color rgba="0.5 0.5 .5 1.0"/>
+  </material>
+
+  <link name="motor1">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <cylinder radius=".0142" length="0.022"/>
+      </geometry>
+      <material name="motor" />
+    </visual>
+  </link>
+  <link name="motor2">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <cylinder radius=".0142" length="0.022"/>
+      </geometry>
+      <material name="motor" />
+    </visual>
+  </link>
+  <link name="motor3">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <cylinder radius=".0142" length="0.022"/>
+      </geometry>
+      <material name="motor" />
+    </visual>
+  </link>
+  <link name="motor4">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <cylinder radius=".0142" length="0.022"/>
+      </geometry>
+      <material name="motor" />
+    </visual>
+  </link>
+
+  <link name="prop1">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <cylinder radius=".06477" length="0.007"/>
+      </geometry>
+      <material name="wash" />
+    </visual>
+  </link>
+  <link name="prop2">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <cylinder radius=".06477" length="0.007"/>
+      </geometry>
+      <material name="wash" />
+    </visual>
+  </link>
+  <link name="prop3">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <cylinder radius=".06477" length="0.007"/>
+      </geometry>
+      <material name="wash" />
+    </visual>
+  </link>
+  <link name="prop4">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <cylinder radius=".06477" length="0.007"/>
+      </geometry>
+      <material name="wash" />
+    </visual>
+  </link>
+
+
+
+
+  <joint name="motor1" type="fixed" dont_collapse="true">
+    <parent link="quadrotor"/>
+    <child link="motor1"/>
+    <origin xyz=".09057 .084212 .004" rpy="0 0 0" />
+  </joint>
+  <joint name="motor2" type="fixed" dont_collapse="true">
+    <parent link="quadrotor"/>
+    <child link="motor2"/>
+    <origin xyz="-.09057 .084212 .004" rpy="0 0 0" />
+  </joint>
+  <joint name="motor3" type="fixed" dont_collapse="true">
+    <parent link="quadrotor"/>
+    <child link="motor3"/>
+    <origin xyz="-.09057 -.084212 .004" rpy="0 0 0" />
+  </joint>
+  <joint name="motor4" type="fixed" dont_collapse="true">
+    <parent link="quadrotor"/>
+    <child link="motor4"/>
+    <origin xyz=".09057 -.084212 .004" rpy="0 0 0" />
+  </joint>
+
+  <joint name="prop1" type="continuous">
+    <parent link="motor1"/>
+    <child link="prop1"/>
+    <origin xyz="0 0 0.01" rpy="0 0 0"/>
+    <axis rpy="0 0 0" xyz="0 0 1"/>
+  </joint>
+  <joint name="prop2" type="continuous">
+    <parent link="motor2"/>
+    <child link="prop2"/>
+    <origin xyz="0 0 0.01" rpy="0 0 0"/>
+    <axis rpy="0 0 0" xyz="0 0 1"/>
+  </joint>
+  <joint name="prop3" type="continuous">
+    <parent link="motor3"/>
+    <child link="prop3"/>
+    <origin xyz="0 0 0.01" rpy="0 0 0"/>
+    <axis rpy="0 0 0" xyz="0 0 1"/>
+  </joint>
+  <joint name="prop4" type="continuous">
+    <parent link="motor4"/>
+    <child link="prop4"/>
+    <origin xyz="0 0 0.01" rpy="0 0 0"/>
+    <axis rpy="0 0 0" xyz="0 0 1"/>
+  </joint>
+
+
+</robot>
