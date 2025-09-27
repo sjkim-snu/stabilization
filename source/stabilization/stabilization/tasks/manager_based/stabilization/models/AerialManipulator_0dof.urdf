@@ -8,29 +8,23 @@
 
  <!-- Coordinate system of AerialManipulator -->
  <link name="quadrotor">
- <inertial>
-      <!-- 
-      Only virtual Coordinate frame
-      No Physical Quantities 
-      -->
+  <inertial>
+    <mass value="1e-9"/>
+    <inertia ixx="1e-12" ixy="0" ixz="0" iyy="1e-12" iyz="0" izz="1e-12"/>
   </inertial>
  </link>
  
  <link name="arm">
- <inertial>
-      <!-- 
-      Only virtual Coordinate frame
-      No Physical Quantities 
-      -->
+  <inertial>
+    <mass value="1e-9"/>
+    <inertia ixx="1e-12" ixy="0" ixz="0" iyy="1e-12" iyz="0" izz="1e-12"/>
   </inertial>
  </link>
  
  <link name="gripper">
- <inertial>
-      <!-- 
-      Only virtual Coordinate frame
-      No Physical Quantities 
-      -->
+  <inertial>
+    <mass value="1e-9"/>
+    <inertia ixx="1e-12" ixy="0" ixz="0" iyy="1e-12" iyz="0" izz="1e-12"/>
   </inertial>
  </link>
  <!-- Coordinate system of Root AerialManipulator -->
@@ -425,6 +419,10 @@
   </material>
 
   <link name="motor1">
+  <inertial>
+    <mass value="1e-9"/>
+    <inertia ixx="1e-12" ixy="0" ixz="0" iyy="1e-12" iyz="0" izz="1e-12"/>
+  </inertial>
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
@@ -434,6 +432,10 @@
     </visual>
   </link>
   <link name="motor2">
+  <inertial>
+    <mass value="1e-9"/>
+    <inertia ixx="1e-12" ixy="0" ixz="0" iyy="1e-12" iyz="0" izz="1e-12"/>
+  </inertial>
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
@@ -443,6 +445,10 @@
     </visual>
   </link>
   <link name="motor3">
+  <inertial>
+    <mass value="1e-9"/>
+    <inertia ixx="1e-12" ixy="0" ixz="0" iyy="1e-12" iyz="0" izz="1e-12"/>
+  </inertial>
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
@@ -452,6 +458,10 @@
     </visual>
   </link>
   <link name="motor4">
+  <inertial>
+    <mass value="1e-9"/>
+    <inertia ixx="1e-12" ixy="0" ixz="0" iyy="1e-12" iyz="0" izz="1e-12"/>
+  </inertial>
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
@@ -462,6 +472,10 @@
   </link>
 
   <link name="prop1">
+  <inertial>
+    <mass value="1e-9"/>
+    <inertia ixx="1e-12" ixy="0" ixz="0" iyy="1e-12" iyz="0" izz="1e-12"/>
+  </inertial>
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
@@ -471,6 +485,10 @@
     </visual>
   </link>
   <link name="prop2">
+  <inertial>
+    <mass value="1e-9"/>
+    <inertia ixx="1e-12" ixy="0" ixz="0" iyy="1e-12" iyz="0" izz="1e-12"/>
+  </inertial>
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
@@ -480,6 +498,10 @@
     </visual>
   </link>
   <link name="prop3">
+  <inertial>
+    <mass value="1e-9"/>
+    <inertia ixx="1e-12" ixy="0" ixz="0" iyy="1e-12" iyz="0" izz="1e-12"/>
+  </inertial>
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
@@ -489,6 +511,10 @@
     </visual>
   </link>
   <link name="prop4">
+  <inertial>
+    <mass value="1e-9"/>
+    <inertia ixx="1e-12" ixy="0" ixz="0" iyy="1e-12" iyz="0" izz="1e-12"/>
+  </inertial>
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>

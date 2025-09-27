@@ -157,6 +157,7 @@ def main():
                     f"reward={rew[0].item():+.4f}  "
                     f"ang_sp_norm={ang_sp_norm:.3f}  "
                     f"torque_sp_b=[{(1e3*torque_sp_b[0]):+.3f},{(1e3*torque_sp_b[1]):+.3f},{(1e3*torque_sp_b[2]):+.3f}] mN·m"
+                    f"[check] mass_from_sim = {float(bc._mass[0].item()):.3f} kg"
                 )
 
             step += 1

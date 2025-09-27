@@ -282,20 +282,20 @@ class ManipulatorActionFns:
 class ManipulatorBaseControllerCfg(ActionTermCfg):
         
     asset_name: str = "Robot"
-    arm_length: float = 0.1
+    arm_length: float = 1
     
-    k_f_rpm2: float = 9.6e-08
-    k_m_rpm2: float = 6.8e-10
+    k_f_rpm2: float = 9.6e-09
+    k_m_rpm2: float = 6.8e-11
     
-    w_min_rpm: float = 6000.0
-    w_max_rpm: float = 33000.0
+    w_min_rpm: float = 5000.0
+    w_max_rpm: float = 25000.0
     
     rotor_dirs: list[float] = [1.0, -1.0, 1.0, -1.0] # CW: +1, CCW: -1
     rotor_xy_normalized: list[list[float]] = [ 
-        [+1.0, +1.0],  # Front right
-        [+1.0, -1.0],  # Front left
-        [-1.0, -1.0],  # Back left
-        [-1.0, +1.0]]  # Back right
+        [+0.09057, +0.084212],  # Front right
+        [+0.09057, -0.084212],  # Front left
+        [-0.09057, -0.084212],  # Back left
+        [-0.09057, +0.084212]]  # Back right
 
 class ManipulatorBaseController(ActionTerm):
     
@@ -310,7 +310,7 @@ class ManipulatorBaseController(ActionTerm):
         # Set tensors
         self._arm_length = torch.tensor(self.cfg.arm_length, device=self._device, dtype=self._dtype) # (1,)
         self._rotor_dirs = torch.tensor(self.cfg.rotor_dirs, device=self._device, dtype=self._dtype)  # (4,)
-        self._rotor_xy = torch.tensor(self.cfg.rotor_xy_normalized, device=self._device, dtype=self._dtype) * self._arm_length / torch.sqrt(torch.tensor(2.0)) # (4,2)
+        self._rotor_xy = torch.tensor(self.cfg.rotor_xy_normalized, device=self._device, dtype=self._dtype) * self._arm_length # (4,2)
 
         # Set conversion factors
         self._rad_to_rpm = torch.tensor(60 / (2 * math.pi), device=self._device, dtype=self._dtype)
@@ -335,6 +335,15 @@ class ManipulatorBaseController(ActionTerm):
         self._moment = torch.zeros(N, 1, 3, device=self._device)    # (N,1,3) total moment/torque
         self._omega = torch.zeros(N, 4, device=self._device)        # (N,4) processed motor speeds (rad/s)
 
+        # Get body IDs
+        ids, names = self._asset.find_bodies(".*", preserve_order=True)
+        quad_index = names.index("quadrotor_visual")
+        arm_index = names.index("arm_visual")
+        gripper_index = names.index("gripper_visual")   
+        self._quad_ids = [int(ids[quad_index])]       
+        self._arm_ids = [int(ids[arm_index])]
+        self._gripper_ids = [int(ids[gripper_index])]
+        
         # Set mass tensor
         mass = self._asset.root_physx_view.get_masses()
         mass = torch.as_tensor(mass, device=self._device, dtype=self._dtype).sum(dim=1, keepdim=True)
@@ -344,10 +353,6 @@ class ManipulatorBaseController(ActionTerm):
         inertia = self._asset.data.default_inertia[:,0,:] # (N, 9)
         J_diag = inertia[:, [0,4,8]] # (N, 3)
         self._J_diag = J_diag.to(device=self._device, dtype=self._dtype)
-        
-        # Get body IDs
-        ids, names = self._asset.find_bodies(".*", preserve_order=True)
-        self._body_ids = [int(ids[0])]
         
         self.ManipulatorCascadeController = mdp.ManipulatorCascadeController(
             num_envs = CONFIG["SCENE"]["NUM_ENVS"],
@@ -448,7 +453,7 @@ class ManipulatorBaseController(ActionTerm):
         self._moment[:, 0, 2] = tau_z
 
         self._asset.set_external_force_and_torque(
-            body_ids = self._body_ids,
+            body_ids = self._quad_ids,
             forces = self._thrust,
             torques = self._moment,
             is_global = False,
