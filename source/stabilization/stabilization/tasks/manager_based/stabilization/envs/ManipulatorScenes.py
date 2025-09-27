@@ -49,7 +49,7 @@ class ManipulatorSceneCfg(InteractiveSceneCfg):
                 sleep_threshold=0.005,
                 stabilization_threshold=0.001,
             ),
-            copy_from_source=False,
+            copy_from_source=True,
         ),
         init_state=ArticulationCfg.InitialStateCfg(
             pos=(0.0, 0.0, 0.5),
