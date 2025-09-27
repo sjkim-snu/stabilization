@@ -15,7 +15,7 @@ from stabilization.tasks.manager_based.stabilization.config import load_paramete
 # Load configuration from YAML file
 CONFIG = load_parameters()
 
-class ActionFns:
+class ManipulatorActionFns:
     
     @staticmethod
     def mix_rate_thrust_to_rotor_forces(
@@ -279,16 +279,16 @@ class ActionFns:
     
     
 @configclass
-class BaseControllerCfg(ActionTermCfg):
+class ManipulatorBaseControllerCfg(ActionTermCfg):
         
     asset_name: str = "Robot"
-    arm_length: float = 0.046
+    arm_length: float = 0.1
     
-    k_f_rpm2: float = 2.44e-10
-    k_m_rpm2: float = 1.24e-12
+    k_f_rpm2: float = 9.6e-08
+    k_m_rpm2: float = 6.8e-10
     
-    w_min_rpm: float = 5000.0
-    w_max_rpm: float = 25000.0
+    w_min_rpm: float = 6000.0
+    w_max_rpm: float = 33000.0
     
     rotor_dirs: list[float] = [1.0, -1.0, 1.0, -1.0] # CW: +1, CCW: -1
     rotor_xy_normalized: list[list[float]] = [ 
@@ -297,9 +297,9 @@ class BaseControllerCfg(ActionTermCfg):
         [-1.0, -1.0],  # Back left
         [-1.0, +1.0]]  # Back right
 
-class BaseController(ActionTerm):
+class ManipulatorBaseController(ActionTerm):
     
-    def __init__(self, cfg: BaseControllerCfg, env: ManagerBasedEnv):
+    def __init__(self, cfg: ManipulatorBaseControllerCfg, env: ManagerBasedEnv):
         
         super().__init__(cfg, env)
         
@@ -349,10 +349,10 @@ class BaseController(ActionTerm):
         ids, names = self._asset.find_bodies(".*", preserve_order=True)
         self._body_ids = [int(ids[0])]
         
-        self.CascadeController = mdp.CascadeController(
+        self.ManipulatorCascadeController = mdp.ManipulatorCascadeController(
             num_envs = CONFIG["SCENE"]["NUM_ENVS"],
             dt = CONFIG["ENV"]["PHYSICS_DT"],
-            cfg = mdp.CascadeControllerCfg(),
+            cfg = mdp.ManipulatorCascadeControllerCfg(),
             dtype = self._dtype,
         )
     
@@ -383,13 +383,13 @@ class BaseController(ActionTerm):
         ang_vel_b = mdp.ObservationFns.get_ang_vel_b(self._env, asset_cfg)  # (N, 3)
 
         # Cascaded control
-        vel_sp_w = self.CascadeController.position_control(pos_w, pos_sp_w)
-        acc_sp_w = self.CascadeController.velocity_control(vel_w, vel_sp_w)
+        vel_sp_w = self.ManipulatorCascadeController.position_control(pos_w, pos_sp_w)
+        acc_sp_w = self.ManipulatorCascadeController.velocity_control(vel_w, vel_sp_w)
         yaw_sp = torch.zeros_like(acc_sp_w[:, :1])  # (N, 1)
         # yaw_sp = ActionFns._quat_to_yaw(quat_w) # (N, 1) hold inital yaw
-        quat_sp_w, t_norm = self.CascadeController.acc_yaw_to_quaternion_thrust(acc_sp_w, yaw_sp)
-        ang_vel_sp_b = self.CascadeController.attitude_control(quat_w, quat_sp_w)
-        momentum_sp_b = self.CascadeController.body_rate_control(self._J_diag, ang_vel_b, ang_vel_sp_b)
+        quat_sp_w, t_norm = self.ManipulatorCascadeController.acc_yaw_to_quaternion_thrust(acc_sp_w, yaw_sp)
+        ang_vel_sp_b = self.ManipulatorCascadeController.attitude_control(quat_w, quat_sp_w)
+        momentum_sp_b = self.ManipulatorCascadeController.body_rate_control(self._J_diag, ang_vel_b, ang_vel_sp_b)
 
         # Add residual thrust command from action
         res = self._raw
@@ -399,11 +399,11 @@ class BaseController(ActionTerm):
         F_total_max = 4.0 * F_per_rotor_max
         delta_accel = (res_thrust * F_total_max) / self._mass
         t_norm = torch.clamp(t_norm + delta_accel, min=0.0)
-        torque_limit = self.CascadeController._torque_limit
+        torque_limit = self.ManipulatorCascadeController._torque_limit
         momentum_sp_b = torch.clamp(momentum_sp_b + res_torque * torque_limit, -torque_limit, torque_limit)
 
         # Mixing
-        self._mixed_thrust = ActionFns.mix_rate_thrust_to_rotor_forces(
+        self._mixed_thrust = ManipulatorActionFns.mix_rate_thrust_to_rotor_forces(
             required_accel = t_norm,
             momentum_sp_b = momentum_sp_b,
             rotor_xy = self._rotor_xy,
@@ -413,14 +413,14 @@ class BaseController(ActionTerm):
             mass = self._mass
         ) # (N, 4)
         
-        self._mixed_thrust_desaturated = ActionFns.desaturate_rotor_forces(
+        self._mixed_thrust_desaturated = ManipulatorActionFns.desaturate_rotor_forces(
             rotor_forces = self._mixed_thrust,
             k_f_rpm2 = self._k_f_rpm2,
             w_min_rpm = self._w_min_rpm,
             w_max_rpm = self._w_max_rpm,
         ) # (N, 4)
         
-        self._mixed_rpm = ActionFns.thrust_to_rpm(
+        self._mixed_rpm = ManipulatorActionFns.thrust_to_rpm(
             rotor_forces = self._mixed_thrust_desaturated,
             w_min_rpm = self._w_min_rpm,
             w_max_rpm = self._w_max_rpm,

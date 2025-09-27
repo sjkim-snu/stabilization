@@ -9,6 +9,8 @@ from isaaclab.envs.mdp import *
 from .E2E_actions import *
 from .Cascaded_actions import *
 from .Cascaded_Controller import *
+from .Manipulator_actions import *
+from .Manipulator_Controller import *
 from .Rewards import *
 from .Observations import *
 from .Events import *

@@ -23,8 +23,8 @@ CONFIG = load_parameters()
 
 @configclass
 class ActionsCfg:
-    base_controller: mdp.BaseControllerCfg = mdp.BaseControllerCfg(
-        class_type=mdp.BaseController,
+    base_controller: mdp.ManipulatorBaseControllerCfg = mdp.ManipulatorBaseControllerCfg(
+        class_type=mdp.ManipulatorBaseController,
         asset_name="Robot",
     )
 
@@ -137,12 +137,12 @@ def main():
                 # (BaseController에서 k_f는 rad/s^2 계수로 변환되어 있음)
                 kf = bc._k_f
                 Fz_total = float((omega**2 * kf).sum().item())
-                ang_sp_norm = float(bc.CascadeController._ang_vel_sp_b[0].norm().item())
-                torque_sp_norm = float(bc.CascadeController._torque_sp_b[0].norm().item())
+                ang_sp_norm = float(bc.ManipulatorCascadeController._ang_vel_sp_b[0].norm().item())
+                torque_sp_norm = float(bc.ManipulatorCascadeController._torque_sp_b[0].norm().item())
                 J_diag = bc._J_diag[0].tolist()
-                pos_w = bc.CascadeController._pos_w[0].tolist()
-                pos_sp_w = bc.CascadeController._pos_sp_w[0].tolist()
-                torque_sp_b = bc.CascadeController._torque_sp_b[0,:].tolist()
+                pos_w = bc.ManipulatorCascadeController._pos_w[0].tolist()
+                pos_sp_w = bc.ManipulatorCascadeController._pos_sp_w[0].tolist()
+                torque_sp_b = bc.ManipulatorCascadeController._torque_sp_b[0,:].tolist()
 
                 # 보조 출력: 각 모터 rpm
                 rpm = (omega * (60.0 / (2.0 * math.pi))).tolist()
