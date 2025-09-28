@@ -348,6 +348,7 @@ class ManipulatorBaseController(ActionTerm):
 
         # Initialize action tensors
         N = self._env.num_envs
+        self._N = N
         self._raw = torch.zeros(N, 4, device=self._device)          # (N,4) raw actions
         self._thrust = torch.zeros(N, 1, 3, device=self._device)    # (N,1,3) total thrust force
         self._moment = torch.zeros(N, 1, 3, device=self._device)    # (N,1,3) total moment/torque
@@ -357,7 +358,12 @@ class ManipulatorBaseController(ActionTerm):
         ids, names = self._asset.find_bodies(".*", preserve_order=True)
         quad_index = names.index("quadrotor_visual")
         arm_index = names.index("arm_visual")
-        gripper_index = names.index("gripper_visual")   
+        gripper_index = names.index("gripper_visual") 
+        
+        self._quad_index = quad_index  
+        self._arm_index = arm_index  
+        self._gripper_index = gripper_index  
+        
         self._quad_ids = [int(ids[quad_index])]       
         self._arm_ids = [int(ids[arm_index])]
         self._gripper_ids = [int(ids[gripper_index])]
@@ -375,16 +381,34 @@ class ManipulatorBaseController(ActionTerm):
         self._quad_inertia = inertia_all[:, quad_index][:, [0, 4, 8]].to(self._device, self._dtype)  # (N,3)  
         self._arm_inertia = inertia_all[:, arm_index][:, [0, 4, 8]].to(self._device, self._dtype)   # (N,3)  
         self._gripper_inertia = inertia_all[:, gripper_index][:, [0, 4, 8]].to(self._device, self._dtype)  # (N,3)  
-
-        # Get data of each elements
-        body_com_pos_w = self._asset.data.body_com_pos_w    # (N, B, 3)  
-        body_pos_w     = self._asset.data.body_pos_w        # (N, B, 3)  
+        
+        # Get Center of Mass of each elements
+        self._quad_com_pos_q    = torch.tensor(cfg.quad_com_pos_q, device=self._device, dtype=self._dtype).expand(N,-1)     # (N, 3)
+        self._arm_com_pos_a     = torch.tensor(cfg.arm_com_pos_a, device=self._device, dtype=self._dtype).expand(N,-1)  # (N, 3)
+        self._gripper_com_pos_g = torch.tensor(cfg.gripper_com_pos_g, device=self._device, dtype=self._dtype).expand(N,-1)  # (N, 3)
+        
+        # Get relative position of each frames
+        self._arm_pos_q         = torch.tensor(cfg.arm_pos_q, device=self._device, dtype=self._dtype).expand(N,-1)  # (N, 3)
+        self._gripper_pos_a     = torch.tensor(cfg.gripper_pos_a, device=self._device, dtype=self._dtype).expand(N,-1)  # (N, 3)
+        
+        self.ManipulatorCascadeController = mdp.ManipulatorCascadeController(
+            num_envs = CONFIG["SCENE"]["NUM_ENVS"],
+            dt = CONFIG["ENV"]["PHYSICS_DT"],
+            cfg = mdp.ManipulatorCascadeControllerCfg(),
+            dtype = self._dtype,
+        )
+    
+    def _update_mass_inertia(self):
+        
+        N = self._N
+        
+        # Get quaternion data of each elements
         body_quat_w    = self._asset.data.body_quat_w       # (N, B, 4)  
         
         # Get quaternion of each elements
-        quad_quat_w    = body_quat_w[:, quad_index, :]      # (N,4)
-        arm_quat_w     = body_quat_w[:, arm_index, :]       # (N,4)
-        gripper_quat_w = body_quat_w[:, gripper_index,:]    # (N,4)
+        quad_quat_w    = body_quat_w[:, self._quad_index, :]      # (N,4)
+        arm_quat_w     = body_quat_w[:, self._arm_index, :]       # (N,4)
+        gripper_quat_w = body_quat_w[:, self._gripper_index,:]    # (N,4)
         
         # Compute Rotation matrix
         self._R_wq = math_utils.matrix_from_quat(quad_quat_w)     # (N,3,3)
@@ -398,15 +422,6 @@ class ManipulatorBaseController(ActionTerm):
         self._R_ag = torch.bmm(R_aw, self._R_wg)            # gripper from arm
         self._R_qg = torch.bmm(R_qw, self._R_wg)            # gripper from quad
 
-        # Get Center of Mass of each elements
-        self._quad_com_pos_q    = torch.tensor(cfg.quad_com_pos_q, device=self._device, dtype=self._dtype).expand(N,-1)     # (N, 3)
-        self._arm_com_pos_a     = torch.tensor(cfg.arm_com_pos_a, device=self._device, dtype=self._dtype).expand(N,-1)  # (N, 3)
-        self._gripper_com_pos_g = torch.tensor(cfg.gripper_com_pos_g, device=self._device, dtype=self._dtype).expand(N,-1)  # (N, 3)
-        
-        # Get relative position of each frames
-        self._arm_pos_q         = torch.tensor(cfg.arm_pos_q, device=self._device, dtype=self._dtype).expand(N,-1)  # (N, 3)
-        self._gripper_pos_a     = torch.tensor(cfg.gripper_pos_a, device=self._device, dtype=self._dtype).expand(N,-1)  # (N, 3)
-        
         # Get Center of Mass in quadrotor frame
         self._arm_com_pos_q = self._arm_pos_q + torch.bmm(self._R_qa, self._arm_com_pos_a.unsqueeze(-1)).squeeze(-1)       
         self._gripper_pos_q   = self._arm_pos_q + torch.bmm(self._R_qa, self._gripper_pos_a.unsqueeze(-1)).squeeze(-1)        
@@ -456,13 +471,6 @@ class ManipulatorBaseController(ActionTerm):
         J_g_O = self._gripper_inertia_q + m_g * (r_g2 * I3 - rrT_g) # (N,3,3)  
 
         self._J_O = J_q_O + J_a_O + J_g_O                           # (N,3,3) 
-        
-        self.ManipulatorCascadeController = mdp.ManipulatorCascadeController(
-            num_envs = CONFIG["SCENE"]["NUM_ENVS"],
-            dt = CONFIG["ENV"]["PHYSICS_DT"],
-            cfg = mdp.ManipulatorCascadeControllerCfg(),
-            dtype = self._dtype,
-        )
     
     @property
     def action_dim(self) -> int:
@@ -480,6 +488,7 @@ class ManipulatorBaseController(ActionTerm):
         
         actions = actions.to(device=self._device, dtype=self._dtype)
         actions = torch.clamp(actions, min=-1.0, max=1.0)
+        self._update_mass_inertia()
         self._raw = actions
         
         # Observations
