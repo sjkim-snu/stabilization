@@ -27,6 +27,7 @@ class ManipulatorActionFns:
         rotor_dirs: torch.Tensor,        # (4,)
         k_f_rpm2: torch.Tensor,          # (1,)
         k_m_rpm2: torch.Tensor,          # (1,)
+        com_pos_q: torch.Tensor,         # (N, 3)  
         ) -> torch.Tensor:
         
         # Handle device and dtype
@@ -44,18 +45,26 @@ class ManipulatorActionFns:
         k_f_rpm2 = k_f_rpm2.to(device=device, dtype=dtype)           # (1,)
         c = rotor_dirs * (k_m_rpm2 / k_f_rpm2)                       # (4,)
 
-        # Mixing matrix
-        M = torch.stack([torch.ones_like(x), y, -x, c], dim=0) # (4, 4)
-        Minv = torch.inverse(M)                                # (4, 4)
-        
-        # Desired thrust, torque vector
-        T = torch.zeros((N, 4), device=device, dtype=dtype) # (N, 4)
-        total_thrust = (required_accel * mass).squeeze(-1)  # (N,)
-        T[:, 0]   = total_thrust                            # (N,)
-        T[:, 1:4] = momentum_sp_b                           # (N,)
+        # Apply COM of total system
+        rC = com_pos_q.to(device=device, dtype=dtype)                # (N,3) 
+        xC = rC[:, 0:1]                                              # (N,1) 
+        yC = rC[:, 1:2]                                              # (N,1) 
+        x_b = x.view(1, 4).expand(N, 4) - xC                         # (N,4) 
+        y_b = y.view(1, 4).expand(N, 4) - yC                         # (N,4) 
+        c_b = c.view(1, 4).expand(N, 4)                              # (N,4) 
 
-        # Compute rotor forces
-        rotor_forces = torch.matmul(T, Minv.T) # (N, 4)
+        # Mixing matrix 
+        M = torch.stack([torch.ones_like(x_b), y_b, -x_b, c_b], dim=1)  # (N,4,4) 
+
+        # Desired thrust, torque vector
+        total_thrust = (required_accel * mass).squeeze(-1)            # (N,)
+        Tx = momentum_sp_b[:, 0] - (yC.squeeze(-1) * total_thrust)    # (N,) 
+        Ty = momentum_sp_b[:, 1] + (xC.squeeze(-1) * total_thrust)    # (N,) 
+        Tz = momentum_sp_b[:, 2]                                      # (N,) 
+        T = torch.stack([total_thrust, Tx, Ty, Tz], dim=1)            # (N,4) 
+
+        # Solve equations
+        rotor_forces = torch.linalg.solve(M, T.unsqueeze(-1)).squeeze(-1)  # (N,4) 
         
         return rotor_forces
     
@@ -487,9 +496,9 @@ class ManipulatorBaseController(ActionTerm):
         # yaw_sp = ActionFns._quat_to_yaw(quat_w) # (N, 1) hold inital yaw
         quat_sp_w, t_norm = self.ManipulatorCascadeController.acc_yaw_to_quaternion_thrust(acc_sp_w, yaw_sp)
         ang_vel_sp_b = self.ManipulatorCascadeController.attitude_control(quat_w, quat_sp_w)
-        momentum_sp_b = self.ManipulatorCascadeController.body_rate_control(self._J_diag, ang_vel_b, ang_vel_sp_b)
+        momentum_sp_b = self.ManipulatorCascadeController.body_rate_control(torch.diagonal(self._J_O, dim1=-2, dim2=-1).contiguous(), ang_vel_b, ang_vel_sp_b)
 
-        # Add residual thrust command from action
+        # Add residual thrust command from action   
         res = self._raw
         res_thrust = res[:, 0:1]
         res_torque = res[:, 1:4]
@@ -508,8 +517,9 @@ class ManipulatorBaseController(ActionTerm):
             rotor_dirs = self._rotor_dirs,
             k_f_rpm2 = self._k_f_rpm2,
             k_m_rpm2 = self._k_m_rpm2,
-            mass = self._mass
-        ) # (N, 4)
+            mass = self._mass,
+            com_pos_q = self._total_com_pos_q,  
+        )  # (N, 4)
         
         self._mixed_thrust_desaturated = ManipulatorActionFns.desaturate_rotor_forces(
             rotor_forces = self._mixed_thrust,

@@ -139,7 +139,6 @@ def main():
                 Fz_total = float((omega**2 * kf).sum().item())
                 ang_sp_norm = float(bc.ManipulatorCascadeController._ang_vel_sp_b[0].norm().item())
                 torque_sp_norm = float(bc.ManipulatorCascadeController._torque_sp_b[0].norm().item())
-                J_diag = bc._J_diag[0].tolist()
                 pos_w = bc.ManipulatorCascadeController._pos_w[0].tolist()
                 pos_sp_w = bc.ManipulatorCascadeController._pos_sp_w[0].tolist()
                 torque_sp_b = bc.ManipulatorCascadeController._torque_sp_b[0,:].tolist()
