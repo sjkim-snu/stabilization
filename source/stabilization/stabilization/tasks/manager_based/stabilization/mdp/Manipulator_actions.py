@@ -49,17 +49,18 @@ class ManipulatorActionFns:
         rC = com_pos_q.to(device=device, dtype=dtype)                # (N,3) 
         xC = rC[:, 0:1]                                              # (N,1) 
         yC = rC[:, 1:2]                                              # (N,1) 
-        x_b = x.view(1, 4).expand(N, 4) - xC                         # (N,4) 
-        y_b = y.view(1, 4).expand(N, 4) - yC                         # (N,4) 
-        c_b = c.view(1, 4).expand(N, 4)                              # (N,4) 
+        x_e = x.view(1, 4).expand(N, 4)                                 
+        y_e = y.view(1, 4).expand(N, 4)                                 
+        c_b = c.view(1, 4).expand(N, 4)
+        M = torch.stack([torch.ones_like(x_e), y_e, -x_e, c_b], dim=1)  
 
         # Mixing matrix 
-        M = torch.stack([torch.ones_like(x_b), y_b, -x_b, c_b], dim=1)  # (N,4,4) 
+        M = torch.stack([torch.ones_like(x_e), y_e, -x_e, c_b], dim=1)  
 
         # Desired thrust, torque vector
         total_thrust = (required_accel * mass).squeeze(-1)            # (N,)
-        Tx = momentum_sp_b[:, 0] - (yC.squeeze(-1) * total_thrust)    # (N,) 
-        Ty = momentum_sp_b[:, 1] + (xC.squeeze(-1) * total_thrust)    # (N,) 
+        Tx = momentum_sp_b[:, 0] + (yC.squeeze(-1) * total_thrust)    # (N,) 
+        Ty = momentum_sp_b[:, 1] - (xC.squeeze(-1) * total_thrust)    # (N,) 
         Tz = momentum_sp_b[:, 2]                                      # (N,) 
         T = torch.stack([total_thrust, Tx, Ty, Tz], dim=1)            # (N,4) 
 
