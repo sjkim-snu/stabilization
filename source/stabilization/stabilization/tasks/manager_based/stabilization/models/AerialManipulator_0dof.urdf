@@ -375,7 +375,7 @@
     <child link="quadrotor_visual"/>
     <origin rpy="0 0 0" xyz="0 0 0"/>
   </joint>
-
+6
   <joint name="arm_attachment" type="revolute" dont_collapse="true"> 
     <parent link="quadrotor_visual"/>
     <child link="arm_visual"/>
