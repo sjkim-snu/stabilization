@@ -59,9 +59,9 @@ class ManipulatorActionFns:
 
         # Desired thrust, torque vector
         total_thrust = (required_accel * mass).squeeze(-1)            # (N,)
-        Tx = momentum_sp_b[:, 0] + (yC.squeeze(-1) * total_thrust)    # (N,) 
-        Ty = momentum_sp_b[:, 1] - (xC.squeeze(-1) * total_thrust)    # (N,) 
-        Tz = momentum_sp_b[:, 2]                                      # (N,) 
+        Tx = momentum_sp_b[:, 0] 
+        Ty = momentum_sp_b[:, 1] 
+        Tz = momentum_sp_b[:, 2]                                      # (N,)
         T = torch.stack([total_thrust, Tx, Ty, Tz], dim=1)            # (N,4) 
 
         # Solve equations
