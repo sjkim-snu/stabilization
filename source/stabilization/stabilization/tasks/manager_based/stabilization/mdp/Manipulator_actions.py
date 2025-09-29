@@ -52,8 +52,7 @@ class ManipulatorActionFns:
         x_e = x.view(1, 4).expand(N, 4)                                 
         y_e = y.view(1, 4).expand(N, 4)                                 
         c_b = c.view(1, 4).expand(N, 4)
-        M = torch.stack([torch.ones_like(x_e), y_e, -x_e, c_b], dim=1)  
-
+        
         # Mixing matrix 
         M = torch.stack([torch.ones_like(x_e), y_e, -x_e, c_b], dim=1)  
 
@@ -506,16 +505,22 @@ class ManipulatorBaseController(ActionTerm):
         # yaw_sp = ActionFns._quat_to_yaw(quat_w) # (N, 1) hold inital yaw
         quat_sp_w, t_norm = self.ManipulatorCascadeController.acc_yaw_to_quaternion_thrust(acc_sp_w, yaw_sp)
         ang_vel_sp_b = self.ManipulatorCascadeController.attitude_control(quat_w, quat_sp_w)
-        momentum_sp_b = self.ManipulatorCascadeController.body_rate_control(torch.diagonal(self._J_O, dim1=-2, dim2=-1).contiguous(), ang_vel_b, ang_vel_sp_b)
         
         # Handle gravity moment since center of mass is not origin
         N = self._N  
-        g_w = torch.zeros((N, 3), device=self._device, dtype=self._dtype)  
-        g_w[:, 2] = -9.81  
-        R_qw = self._R_wq.transpose(1, 2)  
-        g_q = torch.bmm(R_qw, g_w.unsqueeze(-1)).squeeze(-1)  
-        tau_g = torch.cross(self._total_com_pos_q, self._mass * g_q, dim=1)  
-        momentum_sp_b = momentum_sp_b - tau_g  
+        g_w = torch.zeros((N, 3), device=self._device, dtype=self._dtype)
+        g_w[:, 2] = -9.81
+        R_qw = self._R_wq.transpose(1, 2)
+        g_q = torch.bmm(R_qw, g_w.unsqueeze(-1)).squeeze(-1)
+        tau_g = torch.cross(self._total_com_pos_q, self._mass * g_q, dim=1)
+        
+        # Get momentum setpoint
+        momentum_sp_b = self.ManipulatorCascadeController.body_rate_control(
+            torch.diagonal(self._J_O, dim1=-2, dim2=-1).contiguous(),
+            ang_vel_b,
+            ang_vel_sp_b,
+            tau_g_b=tau_g,
+        )
         
         # Add residual thrust command from action   
         res = self._raw

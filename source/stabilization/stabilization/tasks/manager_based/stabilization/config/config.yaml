@@ -48,7 +48,7 @@ ENV:
 EVENT:
   LIN_VEL_MIN: [0, 0, 0]     # Minimum linear velocity (m/s)
   LIN_VEL_MAX: [0, 0, 0]       # Maximum linear velocity (m/s)
-  ANG_VEL_MIN: [-0.0, -0.0, -0.0]    # Minimum angular velocity (rad/s)
+  ANG_VEL_MIN: [0.0, 0.0, 0.0]    # Minimum angular velocity (rad/s)
   ANG_VEL_MAX: [0.0, 0.0, 0.0]       # Maximum angular velocity (rad/s)
   TILT_RANGE_DEG: [0, 0]           # Maximum tilt angle (degrees)
   YAW_DEGREE_RANGE: [-45.0, 45.0]  # Range of yaw angle (degrees)
@@ -72,10 +72,10 @@ REWARD:
   ABNORMAL_PENALTY_WEIGHT: 700.0  # Weight for abnormal penalty
 
 STABILIZATION:
-  POS_ERR_TOL: 0.8          # Position error threshold for determine stabilization (m)
-  LIN_VEL_TOL: 0.3          # Linear velocity threshold for determine stabilization (m/s)
-  ANG_VEL_TOL: 0.3          # Angular velocity threshold for determine stabilization (rad/s)
-  TILT_DEGREE_TOL: 5.0     # Tilt angle threshold for determine stabilization (degrees)
+  POS_ERR_TOL: 0.1          # Position error threshold for determine stabilization (m)
+  LIN_VEL_TOL: 0.1          # Linear velocity threshold for determine stabilization (m/s)
+  ANG_VEL_TOL: 0.1          # Angular velocity threshold for determine stabilization (rad/s)
+  TILT_DEGREE_TOL: 1.0     # Tilt angle threshold for determine stabilization (degrees)
 
 TERMINATION:
   FLIP_TILT_DEGREE: 90.0    # Terminate if tilt angle exceeds (degrees)
@@ -99,17 +99,17 @@ CASCADE_CONTROLLER:
   RATE_I_CLAMP: [0.15, 0.15, 0.1] # Integral windup limit for angular rate controller
 
 MANIPULATOR_CONTROLLER: 
-  POS_P: [1.21, 1.21, 1.21] # Proportional gain for position controller
+  POS_P: [2.21, 2.11, 1.21] # Proportional gain for position controller
   POS_SLEW_MAX: 10.0     # Maximum slew rate for position controller (m)
-  VEL_P: [2.3, 2.3, 2.3] # Proportional gain for velocity controller 
-  VEL_I: [0.02, 0.02, 0.2] # Integral gain for velocity controller 
-  ATT_P: [5, 7, 1.5] # Proportional gain for attitude controller 
-  TILT_MAX: [25.0] # Maximum tilt angle (degrees) 
-  RATE_P: [25, 25, 3.0] # Proportional gain for angular rate controller 
+  VEL_P: [3.0, 2.3, 2.3] # Proportional gain for velocity controller 
+  VEL_I: [0.06, 0.02, 0.2] # Integral gain for velocity controller 
+  ATT_P: [5.0, 5.0, 1.5] # Proportional gain for attitude controller 
+  TILT_MAX: [28.0] # Maximum tilt angle (degrees) 
+  RATE_P: [18, 25.0, 3.0] # Proportional gain for angular rate controller 
   RATE_I: [0.01, 0.01, 0.02] # Integral gain for angular rate controller 
   VEL_LIMIT: [2.6, 2.6, 0.65] # Velocity limit (m/s) 
-  ANG_VEL_LIMIT: [4.5, 4.5, 1.0] # Angular velocity limit (rad/s) 
-  ACC_LIMIT: [8.0, 8.0, 8.0] # Acceleration limit (m/s^2) 
+  ANG_VEL_LIMIT: [4.5, 5.5, 1.0] # Angular velocity limit (rad/s) 
+  ACC_LIMIT: [10.0, 10.0, 8.0] # Acceleration limit (m/s^2) 
   TORQUE_LIMIT: [1, 1, 0.1] # Torque limit (N*m) 
-  VEL_I_CLAMP: [0.4, 0.4, 0.2] # Integral windup limit for velocity controller 
+  VEL_I_CLAMP: [0.8, 0.4, 0.2] # Integral windup limit for velocity controller 
   RATE_I_CLAMP: [0.15, 0.15, 0.1] # Integral windup limit for angular rate controller

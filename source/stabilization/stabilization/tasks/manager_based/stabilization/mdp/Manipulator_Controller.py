@@ -262,7 +262,9 @@ class ManipulatorCascadeController:
 
         # Compute orthonormal basis (b1, b2, b3)
         b2 = torch.cross(b3, b1, dim=1)                                      # (N,3)
-        b2_norm = torch.norm(b2, dim=1, keepdim=True)
+        b2 = b2 / (torch.norm(b2, dim=1, keepdim=True) + 1e-12)      
+        b1 = torch.cross(b2, b3, dim=1)                               
+        b1 = b1 / (torch.norm(b1, dim=1, keepdim=True) + 1e-12)      
 
         # Rotation matrix to quaternion
         R = torch.stack([b1, b2, b3], dim=2)                                 # (N,3,3)
@@ -306,7 +308,8 @@ class ManipulatorCascadeController:
     def body_rate_control(self, 
                           inertia_diag: torch.Tensor,  # (N, 3)
                           ang_vel_b: torch.Tensor,     # (N, 3)
-                          ang_vel_sp_b: torch.Tensor   # (N, 3)
+                          ang_vel_sp_b: torch.Tensor,  # (N, 3)
+                          tau_g_b: torch.Tensor = None # (N, 3)
                           ) -> torch.Tensor:
         
         # Compute error and new integral
@@ -336,7 +339,11 @@ class ManipulatorCascadeController:
 
         # Include gyroscopic effects
         gyro = torch.cross(ang_vel_b, inertia_diag * ang_vel_b, dim=1)
-        torque_sp_b = torch.clamp(tau_cmd + gyro, -self._torque_limit, self._torque_limit)
+        if tau_g_b is None:                                                          
+            tau_g_b = torch.zeros_like(ang_vel_b)                                    
+
+        u_unsat = tau_cmd + gyro                                                     
+        torque_sp_b = torch.clamp(u_unsat - tau_g_b, -self._torque_limit, self._torque_limit) 
 
         # Store for debugging
         self._tau_cmd_b   = tau_cmd         # Before gyroscopic effects
