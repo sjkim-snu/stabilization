@@ -153,11 +153,11 @@ def main():
                     f"ang_vel_b=({ang_b[0]:+.3f},{ang_b[1]:+.3f},{ang_b[2]:+.3f})  "
                     f"rpm={tuple(float(x) for x in rpm)}  "
                     f"att_deg=({r0:+.1f},{p0:+.1f},{y0:+.1f})   "
-                    f"Fz_sum_N={Fz_total:+.3f}  "
-                    f"reward={rew[0].item():+.4f}  "
-                    f"ang_sp_norm={ang_sp_norm:.3f}  "
-                    f"torque_sp_b=[{(1e3*torque_sp_b[0]):+.3f},{(1e3*torque_sp_b[1]):+.3f},{(1e3*torque_sp_b[2]):+.3f}] mN·m"
-                    f"mass_total = {float(bc._mass[0].item()):.3f} kg"
+                    # f"Fz_sum_N={Fz_total:+.3f}  "
+                    # f"reward={rew[0].item():+.4f}  "
+                    # f"ang_sp_norm={ang_sp_norm:.3f}  "
+                    f"torque_sp_b=[{(1e3*torque_sp_b[0]):+.3f},{(1e3*torque_sp_b[1]):+.3f},{(1e3*torque_sp_b[2]):+.3f}] mN·m   "
+                    # f"mass_total = {float(bc._mass[0].item()):.3f} kg"
                     f"spawn_pos_w = {spawn_pos_b}"
                 )
 

@@ -46,12 +46,12 @@ ENV:
 # ─────────────────────────────────────────────────────────────────────────────────────
 
 EVENT:
-  LIN_VEL_MIN: [0, 0, 0]     # Minimum linear velocity (m/s)
-  LIN_VEL_MAX: [0, 0, 0]       # Maximum linear velocity (m/s)
-  ANG_VEL_MIN: [0.0, 0.0, 0.0]    # Minimum angular velocity (rad/s)
-  ANG_VEL_MAX: [0.0, 0.0, 0.0]       # Maximum angular velocity (rad/s)
+  LIN_VEL_MIN: [1, 1, 1]     # Minimum linear velocity (m/s)
+  LIN_VEL_MAX: [1, 1, 1]       # Maximum linear velocity (m/s)
+  ANG_VEL_MIN: [1.0, 1.0, 1.0]    # Minimum angular velocity (rad/s)
+  ANG_VEL_MAX: [1.0, 1.0, 1.0]       # Maximum angular velocity (rad/s)
   TILT_RANGE_DEG: [0, 0]           # Maximum tilt angle (degrees)
-  YAW_DEGREE_RANGE: [-45.0, 45.0]  # Range of yaw angle (degrees)
+  YAW_DEGREE_RANGE: [15.0, 15.0]  # Range of yaw angle (degrees)
   OMEGA_NORM_MAX: 7.0                # Maximum angular velocity norm (rad/s)
   
 OBSERVATION:
@@ -99,7 +99,7 @@ CASCADE_CONTROLLER:
   RATE_I_CLAMP: [0.15, 0.15, 0.1] # Integral windup limit for angular rate controller
 
 MANIPULATOR_CONTROLLER: 
-  POS_P: [1.81, 1.61, 1.21] # Proportional gain for position controller
+  POS_P: [1.35, 1.35, 1.21] # Proportional gain for position controller
   POS_SLEW_MAX: 10.0     # Maximum slew rate for position controller (m)
   VEL_P: [3.0, 2.8, 2.3] # Proportional gain for velocity controller 
   VEL_I: [0.01, 0.01, 0.02] # Integral gain for velocity controller 
