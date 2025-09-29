@@ -99,10 +99,10 @@ CASCADE_CONTROLLER:
   RATE_I_CLAMP: [0.15, 0.15, 0.1] # Integral windup limit for angular rate controller
 
 MANIPULATOR_CONTROLLER: 
-  POS_P: [2.21, 2.11, 1.21] # Proportional gain for position controller
+  POS_P: [1.81, 1.61, 1.21] # Proportional gain for position controller
   POS_SLEW_MAX: 10.0     # Maximum slew rate for position controller (m)
-  VEL_P: [3.0, 2.3, 2.3] # Proportional gain for velocity controller 
-  VEL_I: [0.06, 0.02, 0.2] # Integral gain for velocity controller 
+  VEL_P: [3.0, 2.8, 2.3] # Proportional gain for velocity controller 
+  VEL_I: [0.01, 0.01, 0.02] # Integral gain for velocity controller 
   ATT_P: [5.0, 5.0, 1.5] # Proportional gain for attitude controller 
   TILT_MAX: [28.0] # Maximum tilt angle (degrees) 
   RATE_P: [18, 25.0, 3.0] # Proportional gain for angular rate controller 

@@ -121,6 +121,7 @@ def main():
                 # 관측값
                 lin_w = mdp.ObservationFns.get_lin_vel_w(env, asset)[0]
                 ang_b = mdp.ObservationFns.get_ang_vel_b(env, asset)[0]
+                spawn_pos_b = mdp.ObservationFns.get_spawn_pos_w(env, asset)[0]
                 RAD2DEG = 180.0 / math.pi
                 att_q_all = mdp.ObservationFns.get_quaternion_w(env, asset)  # (N, 4)
                 roll, pitch, yaw = math_utils.euler_xyz_from_quat(att_q_all)  # each (N,)
@@ -156,7 +157,8 @@ def main():
                     f"reward={rew[0].item():+.4f}  "
                     f"ang_sp_norm={ang_sp_norm:.3f}  "
                     f"torque_sp_b=[{(1e3*torque_sp_b[0]):+.3f},{(1e3*torque_sp_b[1]):+.3f},{(1e3*torque_sp_b[2]):+.3f}] mN·m"
-                    f"[check] mass_from_sim = {float(bc._mass[0].item()):.3f} kg"
+                    f"mass_total = {float(bc._mass[0].item()):.3f} kg"
+                    f"spawn_pos_w = {spawn_pos_b}"
                 )
 
             step += 1

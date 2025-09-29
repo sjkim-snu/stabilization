@@ -302,7 +302,7 @@ class ManipulatorBaseControllerCfg(ActionTermCfg):
     
     rotor_dirs: list[float] = [1.0, -1.0, 1.0, -1.0] # CW: +1, CCW: -1
     rotor_xy_normalized: list[list[float]] = [ 
-        [+0.09057, +0.084212],  # Front right
+        [+0.09057, +0.084212],  # Front  left
         [+0.09057, -0.084212],  # Front left
         [-0.09057, -0.084212],  # Back left
         [-0.09057, +0.084212]]  # Back right
@@ -519,7 +519,7 @@ class ManipulatorBaseController(ActionTerm):
             torch.diagonal(self._J_O, dim1=-2, dim2=-1).contiguous(),
             ang_vel_b,
             ang_vel_sp_b,
-            tau_g_b=tau_g,
+            tau_g,
         )
         
         # Add residual thrust command from action   

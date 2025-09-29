@@ -309,7 +309,7 @@ class ManipulatorCascadeController:
                           inertia_diag: torch.Tensor,  # (N, 3)
                           ang_vel_b: torch.Tensor,     # (N, 3)
                           ang_vel_sp_b: torch.Tensor,  # (N, 3)
-                          tau_g_b: torch.Tensor = None # (N, 3)
+                          tau_g_b: torch.Tensor, # (N, 3)
                           ) -> torch.Tensor:
         
         # Compute error and new integral
@@ -335,13 +335,9 @@ class ManipulatorCascadeController:
         I = self._rate_I * self._ang_vel_int
         I = torch.clamp(I, -self._rate_I_clamp, self._rate_I_clamp)
         tau_cmd = inertia_diag * (P + I)
-        tau_cmd = torch.clamp(tau_cmd, -self._torque_limit, self._torque_limit)
 
         # Include gyroscopic effects
-        gyro = torch.cross(ang_vel_b, inertia_diag * ang_vel_b, dim=1)
-        if tau_g_b is None:                                                          
-            tau_g_b = torch.zeros_like(ang_vel_b)                                    
-
+        gyro = torch.cross(ang_vel_b, inertia_diag * ang_vel_b, dim=1)     
         u_unsat = tau_cmd + gyro                                                     
         torque_sp_b = torch.clamp(u_unsat - tau_g_b, -self._torque_limit, self._torque_limit) 
 
