@@ -127,6 +127,7 @@ def main():
                 roll, pitch, yaw = math_utils.euler_xyz_from_quat(att_q_all)  # each (N,)
                 att_deg_all = torch.stack((roll, pitch, yaw), dim=1) * RAD2DEG  # (N, 3)
                 r0, p0, y0 = att_deg_all[0].tolist()  # (3,)
+                wind = env.scene._wind_vec
 
                 # 액션/추력 디버깅
                 bc = env.action_manager.get_term("base_controller") 
@@ -158,7 +159,8 @@ def main():
                     # f"ang_sp_norm={ang_sp_norm:.3f}  "
                     f"torque_sp_b=[{(1e3*torque_sp_b[0]):+.3f},{(1e3*torque_sp_b[1]):+.3f},{(1e3*torque_sp_b[2]):+.3f}] mN·m   "
                     # f"mass_total = {float(bc._mass[0].item()):.3f} kg"
-                    f"spawn_pos_w = {spawn_pos_b}"
+                    f"spawn_pos_w = {spawn_pos_b} "
+                    f"wind_vec = {wind}"
                 )
 
             step += 1

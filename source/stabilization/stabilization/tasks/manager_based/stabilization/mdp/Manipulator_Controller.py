@@ -94,6 +94,7 @@ class ManipulatorCascadeControllerCfg:
     # Velocity controller parameters
     vel_P: Tuple[float, float, float] = CONFIG["MANIPULATOR_CONTROLLER"]["VEL_P"]
     vel_I: Tuple[float, float, float] = CONFIG["MANIPULATOR_CONTROLLER"]["VEL_I"]
+    vel_D: Tuple[float, float, float] = CONFIG["MANIPULATOR_CONTROLLER"]["VEL_D"]  
     
     # Attitude controller parameters
     att_P: Tuple[float, float, float] = CONFIG["MANIPULATOR_CONTROLLER"]["ATT_P"]
@@ -102,6 +103,7 @@ class ManipulatorCascadeControllerCfg:
     # Body rate controller parameters
     rate_P: Tuple[float, float, float] = CONFIG["MANIPULATOR_CONTROLLER"]["RATE_P"]
     rate_I: Tuple[float, float, float] = CONFIG["MANIPULATOR_CONTROLLER"]["RATE_I"]
+    rate_D: Tuple[float, float, float] = CONFIG["MANIPULATOR_CONTROLLER"]["RATE_D"]  
 
     # Saturation limits
     vel_limit: Tuple[float, float, float] = CONFIG["MANIPULATOR_CONTROLLER"]["VEL_LIMIT"]
@@ -115,6 +117,10 @@ class ManipulatorCascadeControllerCfg:
     vel_I_clamp: Tuple[float, float, float] = CONFIG["MANIPULATOR_CONTROLLER"]["VEL_I_CLAMP"]
     rate_I_clamp: Tuple[float, float, float] = CONFIG["MANIPULATOR_CONTROLLER"]["RATE_I_CLAMP"]
 
+    # Derivate term limits
+    vel_D_clamp: Tuple[float, float, float] = CONFIG["MANIPULATOR_CONTROLLER"]["VEL_D_CLAMP"]
+    rate_D_clamp: Tuple[float, float, float] = CONFIG["MANIPULATOR_CONTROLLER"]["RATE_D_CLAMP"]
+    
     # Numerics
     eps: float = 1e-6
     
@@ -137,9 +143,11 @@ class ManipulatorCascadeController:
         self._pos_P          = ManipulatorControllerFns.to_tensor_1x(self.cfg.pos_P,         self.dtype, self.device)
         self._vel_P          = ManipulatorControllerFns.to_tensor_1x(self.cfg.vel_P,         self.dtype, self.device)
         self._vel_I          = ManipulatorControllerFns.to_tensor_1x(self.cfg.vel_I,         self.dtype, self.device)
+        self._vel_D          = ManipulatorControllerFns.to_tensor_1x(self.cfg.vel_D,         self.dtype, self.device)  
         self._att_P          = ManipulatorControllerFns.to_tensor_1x(self.cfg.att_P,         self.dtype, self.device)
         self._rate_P         = ManipulatorControllerFns.to_tensor_1x(self.cfg.rate_P,        self.dtype, self.device)
         self._rate_I         = ManipulatorControllerFns.to_tensor_1x(self.cfg.rate_I,        self.dtype, self.device)
+        self._rate_D         = ManipulatorControllerFns.to_tensor_1x(self.cfg.rate_D,        self.dtype, self.device)  
         self._tilt_max       = ManipulatorControllerFns.to_tensor_1x(self.cfg.tilt_max,      self.dtype, self.device)
         self._vel_limit      = ManipulatorControllerFns.to_tensor_1x(self.cfg.vel_limit,     self.dtype, self.device)
         self._ang_vel_limit  = ManipulatorControllerFns.to_tensor_1x(self.cfg.ang_vel_limit, self.dtype, self.device)
@@ -149,6 +157,11 @@ class ManipulatorCascadeController:
         self._vel_I_clamp    = ManipulatorControllerFns.to_tensor_1x(self.cfg.vel_I_clamp,   self.dtype, self.device)
         self._rate_I_clamp   = ManipulatorControllerFns.to_tensor_1x(self.cfg.rate_I_clamp,  self.dtype, self.device)
 
+        # Derivate term limits
+        self._vel_D_clamp    = ManipulatorControllerFns.to_tensor_1x(self.cfg.vel_D_clamp,   self.dtype, self.device)
+        self._rate_D_clamp   = ManipulatorControllerFns.to_tensor_1x(self.cfg.rate_D_clamp,  self.dtype, self.device)
+
+        
         # Acceleration, rate limits are used for anti windup (N,3)
         self._acc_limit      = ManipulatorControllerFns.to_tensor_1x(self.cfg.acc_limit,     self.dtype, self.device)
         self._torque_limit   = ManipulatorControllerFns.to_tensor_1x(self.cfg.torque_limit,    self.dtype, self.device)
@@ -159,6 +172,10 @@ class ManipulatorCascadeController:
         
         # Store eps for float
         self._eps: float = float(self.cfg.eps)
+
+        # Derivative buffers (N,3)  
+        self._vel_err_prev   = torch.zeros((num_envs, 3), dtype=self.dtype, device=self.device)  
+        self._ang_err_prev   = torch.zeros((num_envs, 3), dtype=self.dtype, device=self.device)  
         
     def position_control(self,
                          pos_w: torch.Tensor,    # (N, 3)
@@ -197,6 +214,12 @@ class ManipulatorCascadeController:
         I_term = torch.clamp(I_term, -self._vel_I_clamp, self._vel_I_clamp)
         acc_sp_w = P_term + I_term
         
+        # Derivative term (no filter)  
+        vel_deriv = (vel_err - self._vel_err_prev) / self.dt  
+        D_term = self._vel_D * vel_deriv  
+        D_term = torch.clamp(D_term, -self._vel_D_clamp, self._vel_D_clamp)  
+        acc_sp_w = acc_sp_w + D_term  
+        
         # Anti windup: only integrate if not saturated
         acc_sp_lim_w = torch.clamp(acc_sp_w, -self._acc_limit, self._acc_limit)
         saturation = (acc_sp_w > self._acc_limit) | (acc_sp_w < -self._acc_limit)
@@ -208,12 +231,14 @@ class ManipulatorCascadeController:
         I_term = self._vel_I * self._vel_int
         I_term = torch.clamp(I_term, -self._vel_I_clamp, self._vel_I_clamp)
         acc_sp_w = P_term + I_term
+        acc_sp_w = acc_sp_w + D_term  
         
         # Saturate final output
         acc_sp_w = torch.clamp(acc_sp_w, -self._acc_limit, self._acc_limit)
         
         # Store for logging
         self._acc_sp_w = acc_sp_w
+        self._vel_err_prev = vel_err  
         
         return acc_sp_w   # (N,3)
         
@@ -321,8 +346,13 @@ class ManipulatorCascadeController:
         I = self._rate_I * i_new
         I = torch.clamp(I, -self._rate_I_clamp, self._rate_I_clamp)
 
+        # Derivative term (no filter)  
+        ang_err_dot = (ang_vel_err - self._ang_err_prev) / self.dt  
+        D = self._rate_D * ang_err_dot  
+        D = torch.clamp(D, -self._rate_D_clamp, self._rate_D_clamp)  
+
         # Initial torque command and saturation
-        tau_cmd = inertia_diag * (P + I)  # [N·m]
+        tau_cmd = inertia_diag * (P + I + D)  # [N·m]
         tau_lim = torch.clamp(tau_cmd, -self._torque_limit, self._torque_limit)
 
         # Anti windup: only integrate if not saturated and error in same direction
@@ -334,7 +364,7 @@ class ManipulatorCascadeController:
         # Recompute final torque command with updated integral
         I = self._rate_I * self._ang_vel_int
         I = torch.clamp(I, -self._rate_I_clamp, self._rate_I_clamp)
-        tau_cmd = inertia_diag * (P + I)
+        tau_cmd = inertia_diag * (P + I + D)
 
         # Include gyroscopic effects
         gyro = torch.cross(ang_vel_b, inertia_diag * ang_vel_b, dim=1)     
@@ -344,5 +374,6 @@ class ManipulatorCascadeController:
         # Store for debugging
         self._tau_cmd_b   = tau_cmd         # Before gyroscopic effects
         self._torque_sp_b = torque_sp_b     # Final output
+        self._ang_err_prev = ang_vel_err  
 
         return torque_sp_b
