@@ -48,11 +48,14 @@ ENV:
 EVENT:
   LIN_VEL_MIN: [1, 1, 1]     # Minimum linear velocity (m/s)
   LIN_VEL_MAX: [1, 1, 1]       # Maximum linear velocity (m/s)
-  ANG_VEL_MIN: [1.0, 1.0, 1.0]    # Minimum angular velocity (rad/s)
-  ANG_VEL_MAX: [1.0, 1.0, 1.0]       # Maximum angular velocity (rad/s)
-  TILT_RANGE_DEG: [0, 0]           # Maximum tilt angle (degrees)
-  YAW_DEGREE_RANGE: [15.0, 15.0]  # Range of yaw angle (degrees)
+  ANG_VEL_MIN: [0.0, 0.0, 0.0]    # Minimum angular velocity (rad/s)
+  ANG_VEL_MAX: [0.0, 0.0, 0.0]       # Maximum angular velocity (rad/s)
+  TILT_RANGE_DEG: [10, 10]           # Maximum tilt angle (degrees)
+  YAW_DEGREE_RANGE: [45.0, 45.0]  # Range of yaw angle (degrees)
   OMEGA_NORM_MAX: 7.0                # Maximum angular velocity norm (rad/s)
+  WIND_ENABLED: true
+  WIND_MEAN_SPEED: 3 # m/s
+  WIND_UPDATE_HZ: 10 # hz
   
 OBSERVATION:
   CONCATENATE_TERMS: true   # If true, concatenate observation terms into a single vector
@@ -72,10 +75,10 @@ REWARD:
   ABNORMAL_PENALTY_WEIGHT: 700.0  # Weight for abnormal penalty
 
 STABILIZATION:
-  POS_ERR_TOL: 0.1          # Position error threshold for determine stabilization (m)
-  LIN_VEL_TOL: 0.1          # Linear velocity threshold for determine stabilization (m/s)
-  ANG_VEL_TOL: 0.1          # Angular velocity threshold for determine stabilization (rad/s)
-  TILT_DEGREE_TOL: 1.0     # Tilt angle threshold for determine stabilization (degrees)
+  POS_ERR_TOL: 0.0001          # Position error threshold for determine stabilization (m)
+  LIN_VEL_TOL: 0.0001          # Linear velocity threshold for determine stabilization (m/s)
+  ANG_VEL_TOL: 0.0001          # Angular velocity threshold for determine stabilization (rad/s)
+  TILT_DEGREE_TOL: 0.00001     # Tilt angle threshold for determine stabilization (degrees)
 
 TERMINATION:
   FLIP_TILT_DEGREE: 90.0    # Terminate if tilt angle exceeds (degrees)
