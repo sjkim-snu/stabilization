@@ -28,7 +28,7 @@ def main():
     sim.set_camera_view([2.0, 2.0, 2.0], [0.0, 0.0, 0.5])
     
     # Apply the scene configuration
-    scene_cfg = envs.StabilizationSceneCfg(num_envs=10, env_spacing=0.2)
+    scene_cfg = envs.CustomSceneCfg(num_envs=10, env_spacing=0.2)
     scene = InteractiveScene(scene_cfg)
     sim.reset()
     

@@ -23,7 +23,7 @@ CONFIG = load_parameters()
 
 @configclass
 class ActionsCfg:
-    base_controller: mdp.BaseControllerCfg = mdp.BaseControllerCfg(
+    base_controller: mdp.CustomBaseControllerCfg = mdp.CustomBaseControllerCfg(
         class_type=mdp.BaseController,
         asset_name="Robot",
     )
@@ -36,8 +36,8 @@ class ObservationsCfg(mdp.ObservationsCfg):
         self.policy.enable_corruption = CONFIG["OBSERVATION"]["ENABLE_CORRUPTION"]
 
 @configclass
-class StabilizationEnvCfg(ManagerBasedRLEnvCfg):
-    scene: envs.CustomSceneCfg = envs.StabilizationSceneCfg(
+class CustomEnvCfg(ManagerBasedRLEnvCfg):
+    scene: envs.CustomSceneCfg = envs.CustomSceneCfg(
         num_envs=CONFIG["SCENE"]["NUM_ENVS"],
         env_spacing=CONFIG["SCENE"]["ENV_SPACING"],
         clone_in_fabric=CONFIG["SCENE"]["CLONE_IN_FABRIC"],
@@ -59,7 +59,7 @@ class StabilizationEnvCfg(ManagerBasedRLEnvCfg):
 def main():
     
     # define environment
-    env_cfg = StabilizationEnvCfg()
+    env_cfg = CustomEnvCfg()
     env_cfg.sim.device = CONFIG["LAUNCHER"]["DEVICE"]
     env_cfg.sim.headless = CONFIG["LAUNCHER"]["HEADLESS"]
     env = ManagerBasedRLEnv(cfg=env_cfg)

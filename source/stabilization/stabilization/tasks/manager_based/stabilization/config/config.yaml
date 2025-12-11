@@ -46,14 +46,14 @@ ENV:
 # ─────────────────────────────────────────────────────────────────────────────────────
 
 EVENT:
-  LIN_VEL_MIN: [1, 1, 1]     # Minimum linear velocity (m/s)
-  LIN_VEL_MAX: [1, 1, 1]       # Maximum linear velocity (m/s)
+  LIN_VEL_MIN: [0, 0, 0]     # Minimum linear velocity (m/s)
+  LIN_VEL_MAX: [0, 0, 0]       # Maximum linear velocity (m/s)
   ANG_VEL_MIN: [0.0, 0.0, 0.0]    # Minimum angular velocity (rad/s)
   ANG_VEL_MAX: [0.0, 0.0, 0.0]       # Maximum angular velocity (rad/s)
-  TILT_RANGE_DEG: [10, 10]           # Maximum tilt angle (degrees)
-  YAW_DEGREE_RANGE: [45.0, 45.0]  # Range of yaw angle (degrees)
+  TILT_RANGE_DEG: [0, 0]           # Maximum tilt angle (degrees)
+  YAW_DEGREE_RANGE: [0.0, 0.0]  # Range of yaw angle (degrees)
   OMEGA_NORM_MAX: 7.0                # Maximum angular velocity norm (rad/s)
-  WIND_ENABLED: true
+  WIND_ENABLED: false
   WIND_MEAN_SPEED: 50 # m/s
   WIND_UPDATE_HZ: 10 # hz
   
