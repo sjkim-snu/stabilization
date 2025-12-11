@@ -46,15 +46,15 @@ ENV:
 # ─────────────────────────────────────────────────────────────────────────────────────
 
 EVENT:
-  LIN_VEL_MIN: [0, 0, 0]     # Minimum linear velocity (m/s)
-  LIN_VEL_MAX: [0, 0, 0]       # Maximum linear velocity (m/s)
-  ANG_VEL_MIN: [0.0, 0.0, 0.0]    # Minimum angular velocity (rad/s)
-  ANG_VEL_MAX: [0.0, 0.0, 0.0]       # Maximum angular velocity (rad/s)
-  TILT_RANGE_DEG: [0, 0]           # Maximum tilt angle (degrees)
-  YAW_DEGREE_RANGE: [0.0, 0.0]  # Range of yaw angle (degrees)
+  LIN_VEL_MIN: [1, 1, 1]     # Minimum linear velocity (m/s)
+  LIN_VEL_MAX: [1.5, 1.5, 1.5]       # Maximum linear velocity (m/s)
+  ANG_VEL_MIN: [0.5, 0.5, 0.5]    # Minimum angular velocity (rad/s)
+  ANG_VEL_MAX: [1.0, 1.0, 1.0]       # Maximum angular velocity (rad/s)
+  TILT_RANGE_DEG: [15, 20]           # Maximum tilt angle (degrees)
+  YAW_DEGREE_RANGE: [0.0, 30.0]  # Range of yaw angle (degrees)
   OMEGA_NORM_MAX: 7.0                # Maximum angular velocity norm (rad/s)
-  WIND_ENABLED: false
-  WIND_MEAN_SPEED: 50 # m/s
+  WIND_ENABLED: true               # If true, enable wind disturbance
+  WIND_MEAN_SPEED: 3 # m/s
   WIND_UPDATE_HZ: 10 # hz
   
 OBSERVATION:
@@ -75,10 +75,10 @@ REWARD:
   ABNORMAL_PENALTY_WEIGHT: 700.0  # Weight for abnormal penalty
 
 STABILIZATION:
-  POS_ERR_TOL: 0.0001          # Position error threshold for determine stabilization (m)
-  LIN_VEL_TOL: 0.0001          # Linear velocity threshold for determine stabilization (m/s)
-  ANG_VEL_TOL: 0.0001          # Angular velocity threshold for determine stabilization (rad/s)
-  TILT_DEGREE_TOL: 0.00001     # Tilt angle threshold for determine stabilization (degrees)
+  POS_ERR_TOL: 1          # Position error threshold for determine stabilization (m)
+  LIN_VEL_TOL: 0.5          # Linear velocity threshold for determine stabilization (m/s)
+  ANG_VEL_TOL: 0.5          # Angular velocity threshold for determine stabilization (rad/s)
+  TILT_DEGREE_TOL: 5.0     # Tilt angle threshold for determine stabilization (degrees)
 
 TERMINATION:
   FLIP_TILT_DEGREE: 90.0    # Terminate if tilt angle exceeds (degrees)

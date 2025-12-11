@@ -232,7 +232,7 @@ class EventFns:
             forces = torch.zeros((N, 3, 3), device=device, dtype=dtype)
             torques = torch.zeros_like(forces)
             asset.set_external_force_and_torque(
-                forces=forces, torques=torques, body_ids=body_ids, is_global=True
+                forces=forces, torques=torques, body_ids=body_ids, is_global=False
             )
             return
         
