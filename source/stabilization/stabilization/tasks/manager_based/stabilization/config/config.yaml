@@ -66,13 +66,13 @@ REWARD:
   LIN_VEL_HALF: 1.3         # Linear velocity reward drops to half (m/s)
   ANG_VEL_HALF: 1.2         # Angular velocity reward drops to half (rad/s)
   ORI_ERR_HALF: 0.15         # Orientation error reward drops to half (rad)
-  POS_ERR_WEIGHT: 0.6       # Weight for position error reward
-  LIN_VEL_WEIGHT: 1.2       # Weight for linear velocity reward
-  ANG_VEL_WEIGHT: 0.12       # Weight for angular velocity reward
-  ORI_ERR_WEIGHT: 0.12       # Weight for orientation error reward
-  TIME_PENALTY_WEIGHT: 200.0   # Weight for time penalty
-  STABILIZED_BONUS_WEIGHT: 1800.0 # Weight for stabilized bonus
-  ABNORMAL_PENALTY_WEIGHT: 700.0  # Weight for abnormal penalty
+  POS_ERR_WEIGHT: 3.0       # Weight for position error reward
+  LIN_VEL_WEIGHT: 2.5       # Weight for linear velocity reward
+  ANG_VEL_WEIGHT: 0.6       # Weight for angular velocity reward
+  ORI_ERR_WEIGHT: 0.6       # Weight for orientation error reward
+  TIME_PENALTY_WEIGHT: 0.0   # Weight for time penalty
+  STABILIZED_BONUS_WEIGHT: 500.0 # Weight for stabilized bonus
+  ABNORMAL_PENALTY_WEIGHT: 300.0  # Weight for abnormal penalty
 
 STABILIZATION:
   POS_ERR_TOL: 1          # Position error threshold for determine stabilization (m)
