@@ -265,10 +265,10 @@ class RewardFns:
         elapsed = getattr(env, "episode_length_buf", None)  
         if isinstance(elapsed, torch.Tensor):  
             t = elapsed.to(dtype=ok.dtype, device=ok.device) * step_dt  
-            T_max = float(CONFIG["ENV"]["EPISODE_LENGTH_S"])  
-            early_frac = (T_max - t).clamp(min=0.0) / T_max  
+            T_max = float(CONFIG["ENV"]["EPISODE_LENGTH_S"])
+            early_frac = (T_max - t).clamp(min=0.0) / T_max
             bonus = ok * early_frac * (-float(CONFIG["REWARD"]["TIME_PENALTY_WEIGHT"])) * step_dt  
-            ok = ok + bonus  
+            ok = ok + bonus
 
         _push_rew_term(env, "stabilized", ok)
         return ok
