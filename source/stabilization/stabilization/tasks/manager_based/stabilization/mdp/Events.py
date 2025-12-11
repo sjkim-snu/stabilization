@@ -404,4 +404,4 @@ class EventCfg:
 # Alias for easier access
 throw_reset = EventFns.throw_reset
 wind_generator = EventFns.wind_generator
-wind_effect_application = EventFns.apply_wind_effect
+apply_wind_effect = EventFns.apply_wind_effect

@@ -1,11 +1,11 @@
 # /home/ksj/stabilization/source/run_stab.py
 import sys, runpy
-# import gymnasium as gym
+import gymnasium as gym
 
 
 sys.path.insert(0, "/home/ksj/stabilization/source")
 
-ENV_ID = "Isaac-Quad-Stabilization-v0"
+ENV_ID = "Isaac-Quad-Stabilization-v1"
 
 try:
     gym.spec(ENV_ID)
@@ -15,7 +15,7 @@ except Exception:
         entry_point="isaaclab.envs:ManagerBasedRLEnv",
         disable_env_checker=True,
         kwargs={
-            "env_cfg_entry_point": "stabilization.tasks.manager_based.stabilization.runners.TrainRunner:StabilizationEnvCfg",
+            "env_cfg_entry_point": "stabilization.tasks.manager_based.stabilization.runners.ManipulatorTrainRunner:ManipulatorEnvCfg",
             "rl_games_cfg_entry_point": "stabilization.tasks.manager_based.stabilization.agents:rl_games_ppo_cfg.yaml",
         },
     )
